@@ -87,15 +87,8 @@ systemcheck_progress_main_open() {
 }
 
 systemcheck_main() {
-   ## Default the optional flag variables that later code reads
-   ## unconditionally, so nothing is read while unset. Each is otherwise set
-   ## only in a specific case: 'verbose' from the environment, 'CLI'/'GUI' by
-   ## parse_cmd when --cli/--gui is passed, 'BUG' by msgcollector's
-   ## error_handler when the ERR trap fires, and 'deprecated_derivative' only
-   ## for a deprecated release. The normal path (no flag, no error, supported
-   ## release) would otherwise read them unset. Harmless today because
-   ## systemcheck does not run under 'set -o nounset', but this removes that
-   ## reliance and keeps the reads well-defined.
+   ## Default optional flag vars (set only conditionally elsewhere) so the
+   ## normal path never reads them while unset.
    [ -v verbose ] || verbose=""
    [ -v CLI ] || CLI=""
    [ -v GUI ] || GUI=""

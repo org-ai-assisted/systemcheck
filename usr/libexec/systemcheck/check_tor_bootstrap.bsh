@@ -138,9 +138,17 @@ check_tor_bootstrap_init() {
       whonix_firewall_status_notification="pending (no run recorded yet)"
    fi
 
-   onion_time_pre_script_output=$(timeout --kill-after="5" "5" leaprun onion-time-pre-script 2>&1) || true
+   ## Read sdwdate's own last onion-time-pre-script report rather than running
+   ## the script here: running it from systemcheck is a second copy of the Tor
+   ## bootstrap chain, and the script actively requests clock corrections
+   ## (anondate-set) and Tor newnym -- side effects a diagnostic must not
+   ## trigger. sdwdate writes this file every preparation loop.
+   onion_time_pre_script_output=""
+   if [ -e /run/sdwdate/preparation_output ]; then
+      onion_time_pre_script_output="$(cat /run/sdwdate/preparation_output)" || true
+   fi
    if [ "${onion_time_pre_script_output}" = "" ]; then
-      onion_time_pre_script_output="onion-time-pre-script did not return any output."
+      onion_time_pre_script_output="onion-time-pre-script has not reported yet."
    fi
    onion_time_pre_script_output="$(sanitize-string -- 8192 "${onion_time_pre_script_output}")"
    onion_time_pre_script_output="$(br_add "${onion_time_pre_script_output}")"

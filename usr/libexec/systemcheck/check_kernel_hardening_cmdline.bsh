@@ -1,0 +1,180 @@
+#!/bin/bash
+
+## Copyright (C) 2012 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
+## See the file COPYING for copying conditions.
+
+## style-ok: no-strict
+## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
+
+## AI-Assisted
+
+check_kernel_hardening_cmdline() {
+   ## security-misc bakes its kernel command-line hardening into
+   ## GRUB_CMDLINE_LINUX / GRUB_CMDLINE_LINUX_DEFAULT via the fragments under
+   ## /etc/default/grub.d/. On a disk image grub-mkconfig writes those into the
+   ## bootloader entry; on a live ISO the same tokens must be scraped into the
+   ## live boot config. Either path can silently drop them, and until now
+   ## nothing at runtime noticed -- a booted system could be running fully
+   ## unhardened with no indication in systemcheck. This function is the
+   ## runtime backstop: it reads the ACTUAL running kernel's /proc/cmdline and
+   ## flags any of the core hardening tokens that did not make it through.
+   local link_hardening status_text
+   link_hardening="https://www.kicksecure.com/wiki/Verified_Boot#Protecting_the_Kernel_Command_Line"
+   status_text="Kernel Command-Line Hardening"
+
+   if [ -f '/usr/share/qubes/marker-vm' ]; then
+      ## Qubes VMs do not go through grub-mkconfig for their running kernel
+      ## command line -- dom0 / qubes-core-agent-linux's own grub.d fragments
+      ## (30-qubes.cfg, 30-qubes-kernel-vm-support.cfg) supply a fixed,
+      ## Xen-specific cmdline instead (root=/dev/mapper/dmroot, console=hvc0,
+      ## clocksource=tsc, xen_privcmd.unrestricted, ...). Verified against a
+      ## real Qubes AppVM: none of the tokens asserted below are present even
+      ## on a fully up to date, correctly hardened template. Report info
+      ## rather than silently skipping (unlike check_grub_security), so this
+      ## check's non-participation on Qubes stays visible instead of vanishing.
+      local MSG="<p>${status_text}: not applicable on Qubes VMs (the running kernel command line is supplied by dom0, not by this VM's grub-mkconfig), ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
+      return 0
+   fi
+
+   local kernel_cmdline
+   if [ -f /proc/cmdline ]; then
+      kernel_cmdline="$(cat -- /proc/cmdline 2>/dev/null)" || true
+   fi
+
+   if [ -z "${kernel_cmdline}" ]; then
+      ## No procfs (unusual container/chroot) -- nothing to verify, and
+      ## reporting every token "missing" would be a false positive rather
+      ## than a real finding.
+      local MSG="<p>${status_text}: <code>/proc/cmdline</code> unavailable or empty, cannot verify.</p>"
+      run_if_verbose emit_message info "${MSG}"
+      return 0
+   fi
+
+   ## Whole-word tokens that security-misc's grub.d fragments append
+   ## UNCONDITIONALLY -- not inside a shell 'if', not commented out -- to
+   ## GRUB_CMDLINE_LINUX / GRUB_CMDLINE_LINUX_DEFAULT. Derived directly from
+   ## reading security-misc's own
+   ## etc/default/grub.d/{40_kernel_hardening,41_recovery_restrict}.cfg in
+   ## this checkout, not guessed. To regenerate/verify the list:
+   ##   grep -h '^GRUB_CMDLINE_LINUX' \
+   ##      etc/default/grub.d/40_kernel_hardening.cfg* \
+   ##      etc/default/grub.d/41_recovery_restrict.cfg*
+   ## and take the trailing word of every non-commented assignment.
+   ##
+   ## Deliberately EXCLUDED from this list (do not add without re-checking the
+   ## rationale still holds):
+   ##   - 40_cpu_mitigations.cfg: CPU-vulnerability mitigation flags are
+   ##     already verified FUNCTIONALLY (not just as cmdline text) by
+   ##     check_spectre_meltdown.bsh via 'spectre-meltdown-checker'. Asserting
+   ##     their raw text here too would drift independently of that check
+   ##     without adding real coverage.
+   ##   - 41_quiet_boot.cfg ('quiet', 'loglevel=0'): reduces console log
+   ##     verbosity; not access-control/exploit-mitigation hardening.
+   ##   - 40_remount_secure.cfg / 40_signed_modules.cfg: every assignment in
+   ##     both files is commented out (opt-in), so neither file sets anything
+   ##     unconditionally.
+   local -a hardening_tokens=(
+      ## 40_kernel_hardening.cfg
+      'slab_nomerge'
+      'slab_debug=FZ'
+      'init_on_alloc=1'
+      'init_on_free=1'
+      'page_alloc.shuffle=1'
+      'randomize_kstack_offset=on'
+      'vsyscall=none'
+      'debugfs=off'
+      'kfence.sample_interval=100'
+      'vdso32=0'
+      'cfi=kcfi'
+      'ia32_emulation=0'
+      'efi_pstore.pstore_disable=1'
+      'erst_disable'
+      'proc_mem.force_override=ptrace'
+      'amd_iommu=force_isolation'
+      'intel_iommu=on'
+      'iommu=force'
+      'iommu.passthrough=0'
+      'iommu.strict=1'
+      'efi=disable_early_pci_dma'
+      'random.trust_cpu=off'
+      'random.trust_bootloader=off'
+      'extra_latent_entropy'
+      ## 41_recovery_restrict.cfg
+      'rd.emergency=halt'
+      'rd.shell=0'
+   )
+
+   ## For a 'key=value' style parameter (most of the list) the Linux kernel
+   ## cmdline parser applies LAST-OCCURRENCE-WINS: if the key appears more
+   ## than once (e.g. a later boot-config layer appends a conflicting
+   ## override after security-misc's own fragment), the value that actually
+   ## takes effect is the LAST one, not the first. A plain substring/word
+   ## check would still see the FIRST (hardened) occurrence and misreport
+   ## "Present" while the kernel actually applied the overriding value --
+   ## exactly the silent-drift case this check exists to catch. So build a
+   ## key -> last-value map by walking the real cmdline in order, and compare
+   ## each 'key=value' token against that map instead of a raw substring
+   ## search. Flag-only tokens (no '=': slab_nomerge, erst_disable,
+   ## extra_latent_entropy) have no override semantics and keep the
+   ## whole-word presence check.
+   local -a cmdline_words
+   read -r -a cmdline_words <<<"${kernel_cmdline}"
+   local -A cmdline_last_value=()
+   local word word_key word_value
+   for word in "${cmdline_words[@]}"; do
+      case "${word}" in
+         *=*)
+            word_key="${word%%=*}"
+            word_value="${word#*=}"
+            cmdline_last_value["${word_key}"]="${word_value}"
+            ;;
+      esac
+   done
+
+   local -a missing_tokens=()
+   local token token_key token_value
+   for token in "${hardening_tokens[@]}"; do
+      case "${token}" in
+         *=*)
+            token_key="${token%%=*}"
+            token_value="${token#*=}"
+            if [ "${cmdline_last_value[${token_key}]:-}" != "${token_value}" ]; then
+               missing_tokens+=("${token}")
+            fi
+            ;;
+         *)
+            case " ${kernel_cmdline} " in
+               *" ${token} "*)
+                  ;;
+               *)
+                  missing_tokens+=("${token}")
+                  ;;
+            esac
+            ;;
+      esac
+   done
+
+   if [ "${#missing_tokens[@]}" -eq 0 ]; then
+      emit_status_line info "${status_text}" "${link_hardening}" green "Present"
+   else
+      local missing_joined
+      missing_joined="$(IFS=' '; printf '%s' "${missing_tokens[*]}")"
+      missing_joined="$(sanitize-string -- 2048 "${missing_joined}")"
+      local if_you_know_what_you_are_doing_msg
+      if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
+      local MSG="Missing from the running kernel's <code>/proc/cmdline</code>: <code>${missing_joined}</code>.
+This means the running kernel is missing security-misc hardening that should have been baked in by grub-mkconfig (installed systems) or scraped into the live boot config (live ISO/USB). Investigate the bootloader configuration; do not assume this is intentional.
+${if_you_know_what_you_are_doing_msg}"
+      emit_status_line warning "${status_text}" "${link_hardening}" red "Missing" "${MSG}"
+      EXIT_CODE="1"
+   fi
+
+   if [ "${verbose}" -ge "1" ]; then
+      local kernel_cmdline_sanitized
+      kernel_cmdline_sanitized="$(sanitize-string -- 8192 "${kernel_cmdline}")"
+      local MSG="<p><code>/proc/cmdline</code>:
+<blockquote><code>${kernel_cmdline_sanitized}</code></blockquote></p>"
+      emit_message info "${MSG}"
+   fi
+}

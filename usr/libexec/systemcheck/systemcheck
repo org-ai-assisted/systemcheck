@@ -216,7 +216,7 @@ systemcheck_main() {
    systemcheck_run_function systemcheck_progress_main_open
 
    ## uses network: no
-    check_packages ## check_packages
+   systemcheck_run_function check_packages ## check_packages
    systemcheck_progress_main_increment "1"
 
    ## uses network: no
@@ -286,6 +286,10 @@ systemcheck_main() {
 
    ## uses network: no
    systemcheck_run_function check_grub_security ## check_grub_security
+   systemcheck_progress_main_increment "1"
+
+   ## uses network: no
+   systemcheck_run_function check_kernel_hardening_cmdline ## check_kernel_hardening_cmdline
    systemcheck_progress_main_increment "1"
 
    ## uses network: no

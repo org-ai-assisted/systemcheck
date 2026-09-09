@@ -117,8 +117,7 @@ check_qubes_vm_type() {
 <p>Qubes Settings Test Result: Qubes-Whonix-Gateway Qubes VM Type is <code>$qubes_vm_type</code>, but NetVM, ProxyVM or TemplateVM is expected.
 <br/>You most likely want to re-create this VM. Make sure to choose ProxyVM.
 <br/>Also refer to the installation instructions of Qubes-Whonix.</p>
-<br/>
-<br/>$if_you_know_what_you_are_doing_msg</p>"
+<p>$if_you_know_what_you_are_doing_msg</p>"
          ## TODO: Should this be an error instead?
          emit_message warning "$MSG"
          EXIT_CODE="1"
@@ -138,8 +137,7 @@ check_qubes_vm_type() {
 <p>Qubes Settings Test Result: Qubes-Whonix-Workstation Qubes VM Type is <code>$qubes_vm_type</code>, but AppVM or TemplateVM is expected.
 <br/>You most likely want to re-create this VM. Make sure to choose AppVM.
 <br/>Also refer to the installation instructions of Qubes-Whonix.</p>
-<br/>
-<br/>$if_you_know_what_you_are_doing_msg</p>"
+<p>$if_you_know_what_you_are_doing_msg</p>"
          ## TODO: Should this be an error instead?
          emit_message warning "$MSG"
          EXIT_CODE="1"
@@ -279,6 +277,8 @@ check_qubes_update_proxy_reachability() {
    curl_exit_code="0"
 
    ## Do not use --fail, otherwise curl will return exit code 22 and skip tinyproxy output.
+   ## CURL_VERBOSE is a flag or empty; unquoted so an empty value adds no argument.
+   # shellcheck disable=SC2086
    UWT_DEV_PASSTHROUGH="1" \
       curl \
       $CURL_VERBOSE \
@@ -321,7 +321,7 @@ This is expected because not running in Template.</p>"
    local curl_output
    curl_output="$(stcat "$TEMP_DIR/qubes_update_proxy_reachability_file")" || true
 
-   if printf '%s\n' "$curl_output" | grep -q -- "${PROXY_META}" ; then
+   if grep --quiet -- "${PROXY_META}" <<< "$curl_output" ; then
       qubes_update_proxy_test_result_torified="true"
       local MSG="<p>Qubes UpdatesProxy Reachability Result: $status_ok Torified update proxy reachable.</p>"
       #$output_x "${output_opts[@]}" --messagex --typex "info" --message "$MSG"
@@ -330,7 +330,8 @@ This is expected because not running in Template.</p>"
    fi
 
    qubes_update_proxy_test_result_torified="false"
-   local MSG="<p>Qubes UpdatesProxy Reachability Result: $status_ok <u>Non</u>-torified update proxy reachable.
+   local MSG
+   MSG="<p>Qubes UpdatesProxy Reachability Result: $status_ok <u>Non</u>-torified update proxy reachable.
 curl_status_message: <blockquote>$curl_status_message</blockquote>
 PROXY_META: <blockquote>$(sanitize-string -- 255 "${PROXY_META}")</blockquote>
 curl_output: <blockquote>$(sanitize-string -- 255 "$curl_output")</blockquote></p>"
@@ -358,6 +359,8 @@ check_qubes_update_proxy_connectivity() {
    curl_exit_code="0"
 
    ## UWT_DEV_PASSTHROUGH=1 curl --connect-timeout 3 http://127.0.0.1:8082/
+   ## CURL_VERBOSE is a flag or empty; unquoted so an empty value adds no argument.
+   # shellcheck disable=SC2086
    UWT_DEV_PASSTHROUGH="1" \
       curl \
          --fail \

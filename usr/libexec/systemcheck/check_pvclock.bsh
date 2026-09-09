@@ -18,7 +18,7 @@ Using this PVClock together with $PROJECT_NAME is recommended against, because i
 $if_you_know_what_you_are_doing_msg
 
 <p>Recommended action:
-<br/>- If you are using KVM, you probably did not follow $PROJECT_NAME's KVM instructions. [2]</p>
+<br/>- If you are using KVM, you probably did not follow $PROJECT_NAME's KVM instructions. [2]
 <br/>- Or use a different supported $PROJECT_NAME platform. [3]</p>
 
 <p>[1] <a href=${PROJECT_HOMEPAGE}/wiki/Dev/TimeSync>${PROJECT_HOMEPAGE}/wiki/Dev/TimeSync</a>

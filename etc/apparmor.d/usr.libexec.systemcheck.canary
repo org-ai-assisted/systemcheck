@@ -6,12 +6,6 @@ include <tunables/global>
 
 
 /usr/libexec/systemcheck/canary flags=(attach_disconnected) {
-  ## canary-download reaches the network ONLY through the local Tor SOCKS proxy
-  ## (socks5h://127.0.0.1:9050, a TCP socket; DNS is resolved remotely by Tor).
-  ## apache2-common was pulled in for that 'network inet stream', but it also
-  ## granted unrelated ptrace / signal (receive) peer=unconfined / apache rules;
-  ## grant just the socket instead. The nss files it needs (/etc/hosts,
-  ## nsswitch.conf, resolv.conf, passwd, group) are allowed explicitly below.
   network inet stream,
   network inet6 stream,
   include <abstractions/base>

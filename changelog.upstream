@@ -1,3 +1,60 @@
+commit 85491b4380dbccf3164a17a0ccdb1c212108848a
+Merge: f94f40e2 26dd1f0f
+Author: Patrick Schleizer <adrelanos@whonix.org>
+Date:   Mon Sep 21 22:58:45 2026 -0400
+
+    Merge remote-tracking branch 'refs/remotes/ArrayBolt3/arraybolt3/trixie'
+
+commit 26dd1f0f78e1e40d8689f72a1dc8f73a27e371ac
+Author: Aaron Rainbolt <arraybolt3@gmail.com>
+Date:   Mon Sep 21 21:59:17 2026 -0400
+
+    comment
+
+commit bdc09f9a9254ba012377beca66a317a447572299
+Merge: f94f40e2 d057796d
+Author: Aaron Rainbolt <arraybolt3@gmail.com>
+Date:   Mon Sep 21 21:57:19 2026 -0400
+
+    Merge branch 'ai' into arraybolt3/trixie
+
+commit d057796d6cb94807ab7b25315e7aa21a60a6b8de
+Author: claude (dev626 2694adad-9457-4275-9dcf-e16e11e65327) <noreply@anthropic.com>
+Date:   Mon Sep 21 10:27:43 2026 -0400
+
+    canary: grant the Tor SOCKS socket directly, drop apache2-common
+
+    apache2-common was pulled in only for 'network inet stream' (the loopback SOCKS
+    socket) but also granted ptrace and signal (receive) peer=unconfined to a
+    Tor-only fetcher. Grant just the socket; nss files are allowed explicitly.
+
+    Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+commit dd2ba0595c57337c1b4db597f5e3e01de5c2878b
+Author: claude (dev626 2694adad-9457-4275-9dcf-e16e11e65327) <noreply@anthropic.com>
+Date:   Mon Sep 21 08:56:43 2026 -0400
+
+    canary: restore AppArmor exec rule for settings_echo
+
+    Collapsing the per-file helper-scripts rules into '** r,' dropped
+    settings_echo's exec bit, so canary-download's exec of it (to read GATEWAY_IP
+    on the Gateway) was denied and the hourly canary failed.
+
+    Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>
+
+commit 74602e15763b8032c860bb0828bfa06b84300c29
+Merge: 71b20ffc f94f40e2
+Author: assisted-by-ai <assisted-by-ai@users.noreply.github.com>
+Date:   Tue Sep 15 10:46:18 2026 -0400
+
+    Merge master into ai (remaster)
+
+commit f94f40e2eebfd4061ebeda40a2b52933a0e3cd5d
+Author: Patrick Schleizer <adrelanos@whonix.org>
+Date:   Tue Sep 15 12:02:38 2026 +0000
+
+    bumped changelog version
+
 commit ea253b5588ad4c9d6f5ae3488cdd9d3e8b30d614
 Merge: a77a26f7 c0ad0520
 Author: Patrick Schleizer <adrelanos@whonix.org>

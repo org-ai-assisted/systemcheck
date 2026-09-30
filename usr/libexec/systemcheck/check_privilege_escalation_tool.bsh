@@ -6,10 +6,6 @@
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
-## Not actually used. But useful as a test.
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/use_leaprun.sh
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/use_leaprun.sh
-
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/use_sudo.sh
 source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/use_sudo.sh
 

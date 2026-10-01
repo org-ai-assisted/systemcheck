@@ -228,8 +228,8 @@ $qubes_update_help</p>"
       fi
    fi
 
-   ## TODO: Does it really make sense to make systemcheck error out because of
-   ## a "warning"?
-   EXIT_CODE="1"
+   ## --ci: "packages can be updated" is a tolerable finding; do not fail the run
+   ## under --ci. Without --ci it still exits non-zero (unchanged behaviour).
+   [ "${ci:-false}" = "true" ] || EXIT_CODE="1"
    emit_message warning "$MSG"
 }

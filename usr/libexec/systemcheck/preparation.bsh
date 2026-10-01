@@ -282,11 +282,6 @@ emit_message() {
    ##
    ## $1 - severity: info | warning | error
    ## $2 - message (HTML; the CLI channel renders it via msgcollector)
-   ## Track whether any ERROR-severity message was emitted, so --ci can tell a real
-   ## error (still fatal) from a tolerable warning (pending updates etc.).
-   if [ "$1" = "error" ]; then
-      systemcheck_saw_error="true"
-   fi
    $output_x "${output_opts[@]}" --messagex --typex "$1" --message "$2"
    $output_cli "${output_opts[@]}" --messagecli --typecli "$1" --message "$2"
 }

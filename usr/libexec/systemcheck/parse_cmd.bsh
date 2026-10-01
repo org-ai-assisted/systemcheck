@@ -14,13 +14,11 @@ parse_cmd_options() {
    ## adding --silent to curl to suppress output
    CURL_VERBOSE="--silent"
 
-   ## --ci: in a CI / automated-test context, a WARNING-class finding (e.g. pending
-   ## package updates on a freshly installed, not-yet-upgraded system) is expected and
-   ## must NOT fail the run. With --ci, systemcheck exits 0 unless it emitted an
-   ## ERROR-severity message (or hit a script error / signal). Default off: normal
-   ## interactive/user behaviour (warnings exit non-zero) is unchanged.
+   ## --ci: in a CI / automated-test context, the "packages can be updated" finding
+   ## (expected on a freshly installed, not-yet-upgraded system) must NOT fail the run.
+   ## With --ci that one condition does not set a non-zero exit; every other warning
+   ## and error still exits non-zero. Default off: normal behaviour unchanged.
    [ -v ci ] || ci="false"
-   [ -v systemcheck_saw_error ] || systemcheck_saw_error="false"
 
    ## Thanks to:
    ## http://mywiki.wooledge.org/BashFAQ/035
@@ -109,7 +107,8 @@ parse_cmd_options() {
                shift
                ;;
            --ci)
-               ## CI / automated-test mode: warnings are non-fatal, errors still fail.
+               ## CI / automated-test mode: the "updates available" finding is non-fatal;
+               ## all other warnings and errors still fail.
                ci="true"
                shift
                ;;

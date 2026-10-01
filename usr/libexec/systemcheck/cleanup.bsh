@@ -6,6 +6,25 @@
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
+## Pure decision for the --ci exit override (unit-testable; no side effects).
+## $1 raw EXIT_CODE, $2 ci flag, $3 saw-error flag, $4 error_handler exit_code.
+## Echoes 0 when --ci is on, no error-severity message was emitted, and this is a
+## normal completion (no trapped script error, not a 143/130 signal); else echoes
+## the raw code unchanged. So --ci passes warning-only runs but never masks a real
+## error, a script crash, or a signal.
+systemcheck_apply_ci_exit() {
+   local raw="$1" ci_flag="$2" saw_err="$3" script_err="$4"
+   if [ "$ci_flag" = "true" ] \
+      && [ "$saw_err" != "true" ] \
+      && [ -z "$script_err" ] \
+      && [ "$raw" != "143" ] \
+      && [ "$raw" != "130" ]; then
+      printf '%s' "0"
+      return 0
+   fi
+   printf '%s' "$raw"
+}
+
 ## {{ maybe_kill_apt_get_update
 ##
 ## apt-get-update runs as root (using a /etc/sudoers.d/ exception) while
@@ -140,6 +159,11 @@ ex_funct() {
          EXIT_CODE="0"
       fi
    fi
+
+   ## --ci: a CI / automated-test run tolerates WARNING-class findings (e.g. pending
+   ## updates on a fresh install). Decision factored into a pure, unit-testable helper.
+   EXIT_CODE="$(systemcheck_apply_ci_exit \
+      "$EXIT_CODE" "${ci:-false}" "${systemcheck_saw_error:-false}" "$exit_code")"
 
    exit "$EXIT_CODE"
 }

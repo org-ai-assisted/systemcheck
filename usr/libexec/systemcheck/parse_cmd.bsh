@@ -14,6 +14,14 @@ parse_cmd_options() {
    ## adding --silent to curl to suppress output
    CURL_VERBOSE="--silent"
 
+   ## --ci: in a CI / automated-test context, a WARNING-class finding (e.g. pending
+   ## package updates on a freshly installed, not-yet-upgraded system) is expected and
+   ## must NOT fail the run. With --ci, systemcheck exits 0 unless it emitted an
+   ## ERROR-severity message (or hit a script error / signal). Default off: normal
+   ## interactive/user behaviour (warnings exit non-zero) is unchanged.
+   [ -v ci ] || ci="false"
+   [ -v systemcheck_saw_error ] || systemcheck_saw_error="false"
+
    ## Thanks to:
    ## http://mywiki.wooledge.org/BashFAQ/035
 
@@ -98,6 +106,11 @@ parse_cmd_options() {
                ;;
            --leak-test | --leak-tests | --leaktest | --leaktests | --ip-test | --iptest | --ip-tests | --iptests)
                leak_tests="true"
+               shift
+               ;;
+           --ci)
+               ## CI / automated-test mode: warnings are non-fatal, errors still fail.
+               ci="true"
                shift
                ;;
            --autostart)

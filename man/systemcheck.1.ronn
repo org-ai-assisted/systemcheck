@@ -40,6 +40,15 @@ which are important for security.
 
     Deactivates output auto detection. Enables cli output.
 
+  * --ci
+
+    CI / automated-test mode. Warning-class findings that are expected in an
+    automated context (for example pending package updates on a freshly
+    installed, not-yet-upgraded system) are treated as non-fatal, so systemcheck
+    exits 0 unless it emitted an error-severity message (or hit a script error or
+    signal). Intended for gating a test harness; it does not change interactive
+    behaviour.
+
 ## EXIT CODES
 0 Success
 

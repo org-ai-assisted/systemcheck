@@ -42,11 +42,11 @@ which are important for security.
 
   * --ci
 
-    CI / automated-test mode. The one finding expected in an automated context,
-    "packages can be updated" (pending package updates on a freshly installed,
-    not-yet-upgraded system), is treated as non-fatal and does not set a non-zero
-    exit code. Every other warning and error still exits non-zero. Intended for
-    gating a test harness; it does not change interactive behaviour.
+    CI / automated-test mode. Its ONLY effect: the "packages can be updated"
+    finding (expected on a freshly installed, not-yet-upgraded system) does not
+    set a non-zero exit code. The exit code for every other finding is unchanged
+    from a normal run. Intended for gating a test harness; it does not change
+    interactive behaviour.
 
 ## EXIT CODES
 0 Success

@@ -82,6 +82,11 @@ $if_you_know_what_you_are_doing_msg</p>"
 }
 
 check_services() {
+   ## Apply the --ci tirdad-under-SecureBoot tolerance here too (idempotent), so a
+   ## standalone 'systemcheck --ci --function check_services' tolerates it even
+   ## without check_system_ready having run.
+   systemcheck_modules_load_ci_tolerance
+
    check_type="system"
    machine_command_machine="leaprun read-systemctl-logs-failed-units"
    machine_command_pretty="leaprun read-systemctl-logs-failed-units-pretty"

@@ -42,6 +42,16 @@ run_if_verbose() {
 ## read as 'not loaded'; on this distribution the shipped modules-load.d modules
 ## are real loadable modules, and the fail-safe direction (NOT tolerating) is the
 ## safe one.
+##
+## SCOPE (deliberate, matches the operator's modules-load.d spec; the release
+## gate's ISO hits none of these): the predicate keys on modules-load.d
+## membership + Secure Boot being ON, not on parsing systemd-modules-load's
+## failure REASON. So it does not distinguish a Secure Boot key-rejection from a
+## genuinely missing tirdad.ko (check_tirdad_module still reports tirdad absent
+## either way), does not consider kernel 'modules_load=' cmdline entries, and does
+## not apply systemd's same-filename /etc-over-/usr precedence or /dev/null
+## masking (for those the fail-direction is to NOT tolerate -- safe). A user unit
+## coincidentally named systemd-modules-load.service is out of the threat model.
 systemcheck_modules_load_degrade_is_tirdad_sb_only() {
    local sb_rc conf mod loaded not_loaded d
    local -a not_loaded_mods=()
@@ -74,10 +84,17 @@ systemcheck_modules_load_degrade_is_tirdad_sb_only() {
    for d in "${mld_dirs[@]}"; do
       for conf in "$d"/*.conf; do
          [ -e "$conf" ] || continue
-         while read -r mod; do
-            mod="${mod%%#*}"
-            mod="${mod//[[:space:]]/}"
-            [ -n "$mod" ] || continue
+         ## '|| [ -n "$mod" ]' processes a final line with no trailing newline.
+         while read -r mod || [ -n "$mod" ]; do
+            ## modules-load.d: a line whose first non-whitespace character is '#'
+            ## or ';' is a comment; otherwise the entry is the module name.
+            mod="${mod#"${mod%%[![:space:]]*}"}"
+            case "$mod" in
+               ''|'#'*|';'*)
+                  continue
+                  ;;
+            esac
+            mod="${mod%%[[:space:]]*}"
             if [[ "$loaded" != *" ${mod//-/_} "* ]]; then
                not_loaded_mods+=( "$mod" )
             fi
@@ -104,8 +121,15 @@ systemcheck_modules_load_degrade_is_tirdad_sb_only() {
 ## (or any other) failure is never masked. Runs once, from check_system_ready,
 ## before check_services / check_journal consume the lists.
 systemcheck_modules_load_ci_tolerance() {
+   ## Idempotent: called from BOTH check_system_ready and check_services so the
+   ## tolerance applies no matter which check runs first (or runs alone via
+   ## --function), without appending the journal patterns twice.
+   if [ "${systemcheck_modules_load_ci_tolerance_applied:-no}" = "yes" ]; then
+      return 0
+   fi
    [ "${ci:-false}" = "true" ] || return 0
    systemcheck_modules_load_degrade_is_tirdad_sb_only || return 0
+   systemcheck_modules_load_ci_tolerance_applied=yes
    if [[ " ${systemcheck_ignore_failed_units_cli:-} " != *" systemd-modules-load.service "* ]]; then
       systemcheck_ignore_failed_units_cli="${systemcheck_ignore_failed_units_cli:-} systemd-modules-load.service "
    fi

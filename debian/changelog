@@ -6,10 +6,9 @@ systemcheck (3:53.4-1) unstable; urgency=medium
 
 systemcheck (3:53.3-1) unstable; urgency=medium
 
-  * CI mode (--ci): suppress non-zero exit only for the updates-
-    available finding (local package).
+  * New upstream version (local package).
 
- -- Patrick Schleizer <adrelanos@whonix.org>  Thu, 01 Oct 2026 15:21:00 -0400
+ -- Patrick Schleizer <adrelanos@whonix.org>  Fri, 02 Oct 2026 08:31:42 +0000
 
 systemcheck (3:53.2-1) unstable; urgency=medium
 

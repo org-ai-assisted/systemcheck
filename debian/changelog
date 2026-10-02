@@ -1,3 +1,11 @@
+systemcheck (3:53.4-1) unstable; urgency=medium
+
+  * Set Maintainer email to adrelanos@whonix.org to match the changelog
+    trailer, clearing lintian source-nmu-has-incorrect-version-number
+    (same maintainer, two domains since the rebrand).
+
+ -- Patrick Schleizer <adrelanos@whonix.org>  Fri, 02 Oct 2026 06:06:54 -0400
+
 systemcheck (3:53.3-1) unstable; urgency=medium
 
   * CI mode (--ci): suppress non-zero exit only for the updates-

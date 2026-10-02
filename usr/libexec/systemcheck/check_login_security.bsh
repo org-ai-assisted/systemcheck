@@ -146,7 +146,7 @@ See also: <a href=\"https://www.kicksecure.com/wiki/Systemcheck#Physical_Securit
    for (( counter=0; counter < ${#user_list[@]}; counter++ )); do
       ## Usernames, password status, and autologin status all come from
       ## trusted data sources and do not need sanitization.
-      printf -v table_users_entry "| %-${users_column_width}s " "${user_list[counter]}"
+      printf -v table_users_entry "| %-*s " "${users_column_width}" "${user_list[counter]}"
       table_users+=( "${table_users_entry}" )
       printf -v table_settings_gui_entry "| %-20s   %-13s |" "${password_status_list[counter]}" "${autologin_status_list[counter]}"
       table_settings_cli_entry="${table_settings_gui_entry}"

@@ -289,18 +289,18 @@ sysmaint_state_detection() {
     kernel_cmdline="$(cat -- /proc/1/cmdline)" || true
   fi
 
-  if [[ "$kernel_cmdline" =~ 'boot-role=sysmaint' ]]; then
+  if [[ "${kernel_cmdline}" =~ 'boot-role=sysmaint' ]]; then
     booted_in_sysmaint_session='true'
   fi
 
-  if [[ "$kernel_cmdline" =~ 'remove-sysmaint-qubes' ]]; then
+  if [[ "${kernel_cmdline}" =~ 'remove-sysmaint-qubes' ]]; then
     booted_with_remove_sysmaint_qubes='true'
   fi
 }
 
 if_you_know_what_you_are_doing_funct() {
    ## $1 - ${FUNCNAME[0]}
-   echo "\
+   printf '%s\n' "\
 If you know what you are doing, feel free to disable this check.
 Create a file <code>/etc/systemcheck.d/50_user.conf</code> and add:
 <code><blockquote>systemcheck_skip_functions+=\" $1 \"</blockquote></code>"
@@ -409,9 +409,11 @@ systemcheck_run_function() {
            return 0
            ;;
    esac
-   if [ "$systemcheck_autostart_mode" = 'true' ]; then
-      case $systemcheck_autostart_functions in
-          *"$@"*) true;;
+   if [ "${systemcheck_autostart_mode}" = 'true' ]; then
+      case ${systemcheck_autostart_functions} in
+          *"$@"*)
+             true
+             ;;
           *) #echo "INFO: Skipping $@, because systemcheck_autostart_mode is 'true' and systemcheck_autostart_functions does not include it."
              return 0
              ;;

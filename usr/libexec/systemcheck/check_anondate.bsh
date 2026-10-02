@@ -39,8 +39,8 @@ check_anondate_do() {
       type=warning
    fi
 
-   if [ ! "$tor_consensus_status" = "none" ]; then
-      if leaprun anondate-${tor_consensus_status}-only-current-time-in-valid-range ; then
+   if [ ! "${tor_consensus_status}" = "none" ]; then
+      if leaprun "anondate-${tor_consensus_status}-only-current-time-in-valid-range" ; then
          current_time_in_valid_range=true
       else
          current_time_in_valid_range=false
@@ -60,17 +60,17 @@ check_anondate_do() {
 
    ## Check valid-after, valid-until and middle-range if we got an either
    ## verified or unverified Tor consensus.
-   if [ ! "$tor_consensus_status" = "none" ]; then
-      tor_consensus_valid_after="$(leaprun anondate-${tor_consensus_status}-only-show-valid-after)" || true
-      tor_consensus_valid_after="$(sanitize-string -- 255 "$tor_consensus_valid_after")"
-      tor_consensus_valid_until="$(leaprun anondate-${tor_consensus_status}-only-show-valid-until)" || true
-      tor_consensus_valid_until="$(sanitize-string -- 255 "$tor_consensus_valid_until")"
-      tor_consensus_middle_range="$(leaprun anondate-${tor_consensus_status}-only-show-middle-range)" || true
-      tor_consensus_middle_range="$(sanitize-string -- 255 "$tor_consensus_middle_range")"
-      tor_consensus_user_permission="$(leaprun anondate-${tor_consensus_status}-only-user-permission)" || true
-      tor_consensus_user_permission="$(sanitize-string -- 255 "$tor_consensus_user_permission")"
-      tor_consensus_group_permission="$(leaprun anondate-${tor_consensus_status}-only-group-permission)" || true
-      tor_consensus_group_permission="$(sanitize-string -- 255 "$tor_consensus_group_permission")"
+   if [ ! "${tor_consensus_status}" = "none" ]; then
+      tor_consensus_valid_after="$(leaprun "anondate-${tor_consensus_status}-only-show-valid-after")" || true
+      tor_consensus_valid_after="$(sanitize-string -- 255 "${tor_consensus_valid_after}")"
+      tor_consensus_valid_until="$(leaprun "anondate-${tor_consensus_status}-only-show-valid-until")" || true
+      tor_consensus_valid_until="$(sanitize-string -- 255 "${tor_consensus_valid_until}")"
+      tor_consensus_middle_range="$(leaprun "anondate-${tor_consensus_status}-only-show-middle-range")" || true
+      tor_consensus_middle_range="$(sanitize-string -- 255 "${tor_consensus_middle_range}")"
+      tor_consensus_user_permission="$(leaprun "anondate-${tor_consensus_status}-only-user-permission")" || true
+      tor_consensus_user_permission="$(sanitize-string -- 255 "${tor_consensus_user_permission}")"
+      tor_consensus_group_permission="$(leaprun "anondate-${tor_consensus_status}-only-group-permission")" || true
+      tor_consensus_group_permission="$(sanitize-string -- 255 "${tor_consensus_group_permission}")"
    fi
 
    if tor_cert_lifetime_output="$(leaprun anondate-tor-cert-lifetime-valid)" ; then

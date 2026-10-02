@@ -2,16 +2,19 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## DPKG_MAINTSCRIPT_* provided by the dpkg maintainer-script environment
+## style-ok: no-strict
+## Debian maintainer script: errexit-only by convention; #DEBHELPER# snippets are not nounset/pipefail safe
 
 if [ -f /usr/libexec/helper-scripts/pre.bsh ]; then
    source /usr/libexec/helper-scripts/pre.bsh
 fi
 
-set -e
+set -o errexit
 
 true "
 #####################################################################
-## INFO: BEGIN: $DPKG_MAINTSCRIPT_PACKAGE $DPKG_MAINTSCRIPT_NAME $@
+## INFO: BEGIN: ${DPKG_MAINTSCRIPT_PACKAGE} ${DPKG_MAINTSCRIPT_NAME} ${*}
 #####################################################################
 "
 
@@ -51,7 +54,7 @@ case "$1" in
    ;;
 
    *)
-      echo "$DPKG_MAINTSCRIPT_NAME called with unknown argument \`$1'" >&2
+      printf '%s\n' "${DPKG_MAINTSCRIPT_NAME} called with unknown argument \`$1'" >&2
       exit 1
    ;;
 esac
@@ -73,7 +76,7 @@ true "INFO: Done with debhelper."
 
 true "
 #####################################################################
-## INFO: END  : $DPKG_MAINTSCRIPT_PACKAGE $DPKG_MAINTSCRIPT_NAME $@
+## INFO: END  : ${DPKG_MAINTSCRIPT_PACKAGE} ${DPKG_MAINTSCRIPT_NAME} ${*}
 #####################################################################
 "
 

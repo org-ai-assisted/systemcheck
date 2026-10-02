@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# shellcheck disable=SC2154  ## exit_code/lastpid set by the sourcing context
+## style-ok: no-strict
+## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
+
 process_killer_helper() {
    if [ "$(type -t error_handler)" = "function" ]; then
       ## Error handler already implemented. Using it.
@@ -8,12 +12,12 @@ process_killer_helper() {
       ## No error available yet. Implementing one.
       error_handler() {
          # shellcheck disable=SC2317
-         echo "Error detected! BASH_COMMAND: $BASH_COMMAND | exit_code: $exit_code"
+         printf '%s\n' "Error detected! BASH_COMMAND: ${BASH_COMMAND} | exit_code: ${exit_code}"
       }
    fi
    trap "error_handler" ERR
 
-   if [ "$lastpid" = "" ]; then
+   if [ "${lastpid}" = "" ]; then
       return 0
    fi
 

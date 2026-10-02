@@ -28,14 +28,15 @@ leaprun_availability_test() {
   ## also does source above script
   source /usr/libexec/helper-scripts/pkg_manager_running_check
 
-  if [ "$use_leaprun" = "no" ]; then
+  if [ "${use_leaprun}" = "no" ]; then
     return 1
   fi
   return 0
 }
 
 leaprun_check_function() {
-  leaprun_check_output="$(leaprun --check -- apt-get-update 2>&1)"
+  ## Only the exit code matters; output is intentionally discarded.
+  leaprun --check -- apt-get-update >/dev/null 2>&1
 }
 
 sdwdate_ready() {
@@ -148,20 +149,22 @@ Please run systemcheck."
 
   true "INFO: read -r notification_id <& ${coproc_stdout_fd}"
   read -r notification_id <& "${coproc_stdout_fd}"
-  true "INFO: notification_id: $notification_id"
+  true "INFO: notification_id: ${notification_id}"
 
   true "INFO: exec {coproc_stdout_fd}>&-"
   exec {coproc_stdout_fd}>&-
   true "INFO: exec {coproc_stderr_fd}>&-"
   exec {coproc_stderr_fd}>&-
 
-  ! test -e "/proc/$$/fd/${coproc_stdout_fd}"
-  ! test -e "/proc/$$/fd/${coproc_stderr_fd}"
+  ## The coproc fds were just closed above; abort if either unexpectedly persists.
+  test -e "/proc/$$/fd/${coproc_stdout_fd}" && exit 1
+  test -e "/proc/$$/fd/${coproc_stderr_fd}" && exit 1
 
   ## 'coproc' sets variable notify_send_coproc_PID.
-  true "INFO: notify_send_coproc_PID: $notify_send_coproc_PID"
+  # shellcheck disable=SC2154  ## set by the 'coproc notify_send' builtin
+  true "INFO: notify_send_coproc_PID: ${notify_send_coproc_PID}"
   true "INFO: Waiting for notify_send_coproc_PID..."
-  wait "$notify_send_coproc_PID" || true "INFO: coproc exit code: $?"
+  wait "${notify_send_coproc_PID}" || true "INFO: coproc exit code: $?"
   true "INFO: Done waiting for notify_send_coproc_PID."
 
   ## Exit in case no signal was received and notification has been dismissed.
@@ -214,24 +217,23 @@ if ! run_with_attempts 3 "${initial_wait_seconds}" "system ready check" system_r
   send_notification_wait_exit "Software updates check failure" "'leaprun system-ready-check' failed.
 
   Debugging information:
-  - system_ready_check_output: '$system_ready_check_output'"
+  - system_ready_check_output: '${system_ready_check_output}'"
 fi
 
 if ! run_with_attempts 3 "${initial_wait_seconds}" "leaprun availability test" leaprun_availability_test; then
   send_notification_wait_exit "Software updates check failure" "privleap issue.
 
   Debugging information:
-  - use_leaprun: '$use_leaprun'
-  - leaprun_useable_result: '$leaprun_useable_result'"
+  - use_leaprun: '${use_leaprun}'"
 fi
 
 if ! run_with_attempts 3 "${initial_wait_seconds}" "leaprun functionality test" leaprun_check_function; then
   mkdir --parents -- ~/.systemcheck/status-files
   msg="\
-Account '$who_ami' lacks privleap permission. See:
+Account '${who_ami}' lacks privleap permission. See:
 https://www.kicksecure.com/wiki/Systemcheck#updatecheck_for_accounts_other_than_user"
-  printf "%s\n" "$0: ERROR: $msg"
-  /usr/libexec/msgcollector/one-time-popup.py ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "$msg"
+  printf "%s\n" "$0: ERROR: ${msg}"
+  /usr/libexec/msgcollector/one-time-popup.py ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "${msg}"
   exit 0
 fi
 

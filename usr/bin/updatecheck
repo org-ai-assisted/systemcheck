@@ -1,24 +1,15 @@
-#!/bin/bash
+#!/bin/bash -e
 
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
-## style-ok: no-strict
-## Explicit strict options set; global 'export LC_ALL=C' omitted by design (locale forced per-command).
 # shellcheck disable=SC2317  ## functions invoked indirectly (leaprun/coproc callbacks); shellcheck sees them as unreachable
 
-#set -x
+## provides was_executed (direct-run vs sourced); errexit on the shebang makes a
+## failed source here fatal on a direct run and is ignored when sourced.
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh
 
-true "$0: START"
-
-set -o errexit
-set -o nounset
-set -o errtrace
-set -o pipefail
-
-source /usr/libexec/helper-scripts/light_sleep.bsh
-source /usr/libexec/helper-scripts/strings.bsh
-
-system_ready_check_function(){
+system_ready_check_function() {
   system_ready_check_output="$(leaprun system-ready-check 2>&1)"
 }
 
@@ -26,7 +17,8 @@ leaprun_availability_test() {
   ## sets: use_leaprun
   #source /usr/libexec/helper-scripts/use_leaprun.sh
   ## also does source above script
-  source /usr/libexec/helper-scripts/pkg_manager_running_check
+  # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/pkg_manager_running_check
+  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/pkg_manager_running_check
 
   if [ "${use_leaprun}" = "no" ]; then
     return 1
@@ -199,118 +191,142 @@ update_output_check() {
   fi
 }
 
-if ! [[ -v sleep_seconds ]] || ! is_whole_number "${sleep_seconds}"; then
-  sleep_seconds="21600"
-fi
-if ! [[ -v initial_wait_minutes ]] || ! is_whole_number "${initial_wait_minutes}"; then
-  initial_wait_minutes="2"
-fi
+main() {
+  set -o errexit
+  set -o nounset
+  set -o pipefail
+  set -o errtrace
+  shopt -s inherit_errexit
+  shopt -s shift_verbose
+  export LC_ALL=C
 
-initial_wait_seconds=$(( initial_wait_minutes * 60 ))
+  #set -x
 
-trap "sigterm_trap" SIGTERM SIGINT
-trap "exit_trap" EXIT
+  true "$0: START"
 
-who_ami="$(whoami)"
+  # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/light_sleep.bsh
+  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
+  # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
+  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
 
-if ! run_with_attempts 3 "${initial_wait_seconds}" "system ready check" system_ready_check_function; then
-  send_notification_wait_exit "Software updates check failure" "'leaprun system-ready-check' failed.
+  if ! [[ -v sleep_seconds ]] || ! is_whole_number "${sleep_seconds}"; then
+    sleep_seconds="21600"
+  fi
+  if ! [[ -v initial_wait_minutes ]] || ! is_whole_number "${initial_wait_minutes}"; then
+    initial_wait_minutes="2"
+  fi
+
+  initial_wait_seconds=$(( initial_wait_minutes * 60 ))
+
+  trap "sigterm_trap" SIGTERM SIGINT
+  trap "exit_trap" EXIT
+
+  who_ami="$(whoami)"
+
+  if ! run_with_attempts 3 "${initial_wait_seconds}" "system ready check" system_ready_check_function; then
+    send_notification_wait_exit "Software updates check failure" "'leaprun system-ready-check' failed.
 
   Debugging information:
   - system_ready_check_output: '${system_ready_check_output}'"
-fi
+  fi
 
-if ! run_with_attempts 3 "${initial_wait_seconds}" "leaprun availability test" leaprun_availability_test; then
-  send_notification_wait_exit "Software updates check failure" "privleap issue.
+  if ! run_with_attempts 3 "${initial_wait_seconds}" "leaprun availability test" leaprun_availability_test; then
+    send_notification_wait_exit "Software updates check failure" "privleap issue.
 
   Debugging information:
   - use_leaprun: '${use_leaprun}'"
-fi
+  fi
 
-if ! run_with_attempts 3 "${initial_wait_seconds}" "leaprun functionality test" leaprun_check_function; then
-  mkdir --parents -- ~/.systemcheck/status-files
-  msg="\
+  if ! run_with_attempts 3 "${initial_wait_seconds}" "leaprun functionality test" leaprun_check_function; then
+    mkdir --parents -- ~/.systemcheck/status-files
+    msg="\
 Account '${who_ami}' lacks privleap permission. See:
 https://www.kicksecure.com/wiki/Systemcheck#updatecheck_for_accounts_other_than_user"
-  printf "%s\n" "$0: ERROR: ${msg}"
-  /usr/libexec/msgcollector/one-time-popup.py ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "${msg}"
-  exit 0
-fi
+    printf "%s\n" "$0: ERROR: ${msg}"
+    /usr/libexec/msgcollector/one-time-popup.py ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "${msg}"
+    exit 0
+  fi
 
-if ! run_with_attempts 10 "${initial_wait_seconds}" "non-loopback IP" /usr/libexec/helper-scripts/check-network-access; then
-  true "$0: INFO: No non-loopback address found. Do not send an error notification in this instance, the user probably just doesn't have an Internet connection. Therefore exiting."
-  exit 0
-fi
+  if ! run_with_attempts 10 "${initial_wait_seconds}" "non-loopback IP" "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check-network-access; then
+    true "$0: INFO: No non-loopback address found. Do not send an error notification in this instance, the user probably just doesn't have an Internet connection. Therefore exiting."
+    exit 0
+  fi
 
-if ! run_with_attempts 5 "${initial_wait_seconds}" "onion-time-pre-script" onion_time_pre_script_run; then
-  printf "%s\n" "$0: INFO: onion_time_pre_script_output: ${onion_time_pre_script_output}"
-  send_notification_wait_exit "Software updates check failure" "Command 'leaprun onion-time-pre-script' failed. Command output has been logged to journal."
-fi
+  if ! run_with_attempts 5 "${initial_wait_seconds}" "onion-time-pre-script" onion_time_pre_script_run; then
+    printf "%s\n" "$0: INFO: onion_time_pre_script_output: ${onion_time_pre_script_output}"
+    send_notification_wait_exit "Software updates check failure" "Command 'leaprun onion-time-pre-script' failed. Command output has been logged to journal."
+  fi
 
-if ! run_with_attempts 3 "${initial_wait_seconds}" "sdwdate ready check" sdwdate_ready; then
-  send_notification_wait_exit "Software updates check failure" "sdwdate did not complete yet."
-fi
+  if ! run_with_attempts 3 "${initial_wait_seconds}" "sdwdate ready check" sdwdate_ready; then
+    send_notification_wait_exit "Software updates check failure" "sdwdate did not complete yet."
+  fi
 
-if ! run_with_attempts 3 "${initial_wait_seconds}" "check package manager running" check_package_manager_running_helper; then
-  true "$0: INFO: check_package_manager_running_helper did not complete yet."
-  send_notification_wait_exit "Software updates check failure" "Package update database is locked. Is APT already running?"
-fi
+  if ! run_with_attempts 3 "${initial_wait_seconds}" "check package manager running" check_package_manager_running_helper; then
+    true "$0: INFO: check_package_manager_running_helper did not complete yet."
+    send_notification_wait_exit "Software updates check failure" "Package update database is locked. Is APT already running?"
+  fi
 
-## There should be no issue with duplicate pidfile creation in script
-## /usr/libexec/helper-scripts/apt-get-update by function 'write_pid_file'.
-## This is because above it is being checked, that APT is not already running.
-## There is a small risk for TOCTOU.
-if ! update_output="$(leaprun apt-get-update 2>&1)" ; then
+  ## There should be no issue with duplicate pidfile creation in script
+  ## /usr/libexec/helper-scripts/apt-get-update by function 'write_pid_file'.
+  ## This is because above it is being checked, that APT is not already running.
+  ## There is a small risk for TOCTOU.
+  if ! update_output="$(leaprun apt-get-update 2>&1)" ; then
+    update_output_check
+    ## 'leaprun apt-get-update' might exit non-zero but update_output might not contain errors.
+    printf "%s\n" "$0: ERROR: output of 'leaprun apt-get-update':"
+    printf "%s\n" "---------------------------------------------"
+    printf "%s\n" "${update_output}"
+    printf "%s\n" "---------------------------------------------"
+    send_notification_wait_exit "Software updates check failure" "Command 'leaprun apt-get-update' failed (non-zero exit code). Command output has been logged to journal."
+  fi
+
+  ## 'leaprun apt-get-update' might exit 0 but update_output might still contain errors.
   update_output_check
-  ## 'leaprun apt-get-update' might exit non-zero but update_output might not contain errors.
-  printf "%s\n" "$0: ERROR: output of 'leaprun apt-get-update':"
-  printf "%s\n" "---------------------------------------------"
-  printf "%s\n" "${update_output}"
-  printf "%s\n" "---------------------------------------------"
-  send_notification_wait_exit "Software updates check failure" "Command 'leaprun apt-get-update' failed (non-zero exit code). Command output has been logged to journal."
+
+  ## 'wc' can core dump. Example:
+  ## zsh: illegal hardware instruction (core dumped) wc -l
+  ## https://github.com/rspamd/rspamd/issues/5137
+  true "$0: INFO: Testing wc command..."
+  if ! printf '%s\n' '' | wc -l >/dev/null ; then
+    send_notification_wait_exit "Software updates check failure" "Command \"printf '%s\n' '' | wc -l\" failed."
+  fi
+
+  true "$0: INFO: Count upgrades using wc command..."
+  ## Cannot use 'apt-get list --upgradable' because it leads to error:
+  ## > E: Command line option --upgradable is not understood in combination with the other options
+  ##
+  ## Using 'printf' with '>/dev/null' with xtrace (set -x) output.
+  ## Use '2>/dev/null' to ignore warning 'WARNING: apt does not have a stable CLI interface. Use with caution in scripts.'
+  if ! update_package_count="$(LC_ALL=C apt list --upgradable 2>/dev/null | wc -l)" ; then
+    send_notification_wait_exit "Software updates check failure" "Command 'apt list --upgradable' failed."
+  fi
+
+  if [[ "${update_package_count}" = *[!0-9]* ]]; then
+    send_notification_wait_exit "Software updates check failure" "Variable update_package_count is not strictly numeric."
+  fi
+
+  ## Remove first counted line by 'apt list --upgradable':
+  ## > Listing... Done
+  (( update_package_count-- ))
+
+  if [ "${update_package_count}" = "0" ]; then
+     printf "%s\n" "$0: INFO: No updates available."
+     exit 0
+  fi
+
+  update_notify_title='Software updates available'
+  update_notify_body="${update_package_count}"
+  if (( update_package_count > 1 )); then
+     update_notify_body+=' packages have'
+  else
+     update_notify_body+=' package has'
+  fi
+  update_notify_body+=' updates available.'
+
+  send_notification_wait_exit "${update_notify_title}" "${update_notify_body}" 'yes'
+}
+
+## Only auto-run when executed, not when sourced (unit tests source it).
+if was_executed "${BASH_SOURCE[0]}"; then
+  main "$@"
 fi
-
-## 'leaprun apt-get-update' might exit 0 but update_output might still contain errors.
-update_output_check
-
-## 'wc' can core dump. Example:
-## zsh: illegal hardware instruction (core dumped) wc -l
-## https://github.com/rspamd/rspamd/issues/5137
-true "$0: INFO: Testing wc command..."
-if ! printf '%s\n' '' | wc -l >/dev/null ; then
-  send_notification_wait_exit "Software updates check failure" "Command \"printf '%s\n' '' | wc -l\" failed."
-fi
-
-true "$0: INFO: Count upgrades using wc command..."
-## Cannot use 'apt-get list --upgradable' because it leads to error:
-## > E: Command line option --upgradable is not understood in combination with the other options
-##
-## Using 'printf' with '>/dev/null' with xtrace (set -x) output.
-## Use '2>/dev/null' to ignore warning 'WARNING: apt does not have a stable CLI interface. Use with caution in scripts.'
-if ! update_package_count="$(LC_ALL=C apt list --upgradable 2>/dev/null | wc -l)" ; then
-  send_notification_wait_exit "Software updates check failure" "Command 'apt list --upgradable' failed."
-fi
-
-if [[ "${update_package_count}" = *[!0-9]* ]]; then
-  send_notification_wait_exit "Software updates check failure" "Variable update_package_count is not strictly numeric."
-fi
-
-## Remove first counted line by 'apt list --upgradable':
-## > Listing... Done
-(( update_package_count-- ))
-
-if [ "${update_package_count}" = "0" ]; then
-   printf "%s\n" "$0: INFO: No updates available."
-   exit 0
-fi
-
-update_notify_title='Software updates available'
-update_notify_body="${update_package_count}"
-if (( update_package_count > 1 )); then
-   update_notify_body+=' packages have'
-else
-   update_notify_body+=' package has'
-fi
-update_notify_body+=' updates available.'
-
-send_notification_wait_exit "${update_notify_title}" "${update_notify_body}" 'yes'

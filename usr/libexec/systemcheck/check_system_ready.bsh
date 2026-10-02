@@ -107,6 +107,9 @@ check_system_ready_only_ignored_failed() {
 }
 
 check_system_ready() {
+   ## --ci only: tolerate a tirdad-under-Secure-Boot systemd-modules-load degrade
+   ## (module-specific), by injecting into the ignore lists before the checks run.
+   systemcheck_modules_load_ci_tolerance
    check_system_ready_system
    check_system_ready_user
 }

@@ -7,6 +7,8 @@
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 source /usr/libexec/systemcheck/uwt_tool.bsh
+## Provides check_secure_boot_enabled, used by the modules-load tolerance helper.
+source /usr/libexec/helper-scripts/secure_boot_enabled_check.bsh
 
 systemcheck_autostart_functions+=" source_config "
 systemcheck_autostart_functions+=" input_detection "
@@ -24,6 +26,90 @@ run_if_verbose() {
    if [ "$verbose" -ge "1" ]; then
       "$@"
    fi
+}
+
+## True iff the ONLY reason the system is degraded via systemd-modules-load is
+## that the unsigned, out-of-tree 'tirdad' module was rejected under Secure Boot.
+## NARROW BY DESIGN -- every one of these must hold:
+##   * systemd-modules-load.service is actually failed,
+##   * Secure Boot is enabled,
+##   * 'tirdad' is the SOLE modules-load.d module that is not currently loaded.
+## A jitterentropy_rng (or any other) module that failed to load leaves a second
+## not-loaded module, so the degrade is NOT tolerated -- a real shipped-module
+## load regression is never masked, which is why a blanket ignore of
+## systemd-modules-load.service is unacceptable. Consumed ONLY in --ci mode.
+## Note: a modules-load.d module that is builtin never appears in lsmod and would
+## read as 'not loaded'; on this distribution the shipped modules-load.d modules
+## are real loadable modules, and the fail-safe direction (NOT tolerating) is the
+## safe one.
+systemcheck_modules_load_degrade_is_tirdad_sb_only() {
+   local sb_rc conf mod loaded not_loaded d
+   local -a not_loaded_mods=()
+
+   ## systemd-modules-load.service must actually be failed.
+   systemctl is-failed --quiet systemd-modules-load.service || return 1
+
+   ## Secure Boot must be enabled. check_secure_boot_enabled is sourced at the
+   ## top of this fragment.
+   sb_rc=0
+   check_secure_boot_enabled >/dev/null 2>&1 || sb_rc="$?"
+   [ "$sb_rc" = "0" ] || return 1
+
+   ## tirdad must be the SOLE not-loaded modules-load.d module. lsmod names use
+   ## underscores, so normalize '-' to '_' when matching. The dir list is an
+   ## overridable test seam (space-separated); unset = the production set.
+   local -a mld_dirs
+   if [ -n "${systemcheck_modules_load_d_dirs:-}" ]; then
+      read -r -a mld_dirs <<< "$systemcheck_modules_load_d_dirs"
+   else
+      mld_dirs=( \
+         /usr/lib/modules-load.d \
+         /usr/local/lib/modules-load.d \
+         /run/modules-load.d \
+         /etc/modules-load.d \
+      )
+   fi
+   loaded=" $(lsmod | awk 'NR > 1 { print $1 }' | tr '\n' ' ') "
+   shopt -s nullglob
+   for d in "${mld_dirs[@]}"; do
+      for conf in "$d"/*.conf; do
+         [ -e "$conf" ] || continue
+         while read -r mod; do
+            mod="${mod%%#*}"
+            mod="${mod//[[:space:]]/}"
+            [ -n "$mod" ] || continue
+            if [[ "$loaded" != *" ${mod//-/_} "* ]]; then
+               not_loaded_mods+=( "$mod" )
+            fi
+         done < "$conf"
+      done
+   done
+
+   not_loaded=""
+   if [ "${#not_loaded_mods[@]}" -gt 0 ]; then
+      not_loaded="$(printf '%s\n' "${not_loaded_mods[@]}" | sort --unique | tr '\n' ' ')"
+      not_loaded="${not_loaded## }"
+      not_loaded="${not_loaded%% }"
+   fi
+   [ "$not_loaded" = "tirdad" ] || return 1
+   return 0
+}
+
+## In --ci, when systemd-modules-load.service is degraded SOLELY because tirdad
+## was Secure-Boot-rejected, inject that unit AND its journal lines into the
+## existing ignore lists, so the failed-units, system-ready and journal checks all
+## tolerate it through the same machinery as --ignore-failed-unit /
+## --journal-ignore-fixed. MODULE-SPECIFIC: the injection happens only when the
+## helper confirms tirdad is the sole not-loaded module, so a jitterentropy_rng
+## (or any other) failure is never masked. Runs once, from check_system_ready,
+## before check_services / check_journal consume the lists.
+systemcheck_modules_load_ci_tolerance() {
+   [ "${ci:-false}" = "true" ] || return 0
+   systemcheck_modules_load_degrade_is_tirdad_sb_only || return 0
+   if [[ " ${systemcheck_ignore_failed_units_cli:-} " != *" systemd-modules-load.service "* ]]; then
+      systemcheck_ignore_failed_units_cli="${systemcheck_ignore_failed_units_cli:-} systemd-modules-load.service "
+   fi
+   systemcheck_journal_ignore_fixed_cli="${systemcheck_journal_ignore_fixed_cli:-}systemd-modules-load"$'\n'"Key was rejected by service"$'\n'
 }
 
 source_config() {

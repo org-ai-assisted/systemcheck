@@ -165,7 +165,16 @@ check_critical_logs() {
    ## The space before ' BUG:' is important to avoid matching 'debug:'.
    critical_pattern='Bad RAM detected|self-detected stall on CPU| BUG:|nouveau .* channel .* killed!'
 
+   ## A userspace process that logs its OWN assertion as "Non-fatal assertion ... failed"
+   ## (e.g. Tor's tor_bug_occurred_() soft-assert path, incl. its microdesc "Bug:") has
+   ## declared itself survivable and kept running -- it is NOT in the kernel-catastrophe
+   ## tier the ' BUG:' token targets (kernel BUG:/oops/Bad RAM/CPU-stall never carry that
+   ## token). Demote it OUT of CRITICAL to the ordinary warning tier (still emitted under
+   ## --verbose, and --journal-ignore-able there); do not force-show it as critical.
+   ## Tor non-fatal microdesc assertion reference:
+   ## https://gitlab.torproject.org/tpo/core/tor/-/issues/31364
    grep --ignore-case --extended-regexp "${critical_pattern}" -- "${TMPDIR}/journalctl_match_filtered.txt_br" | \
+     grep --ignore-case --invert-match --fixed-strings -- 'Non-fatal assertion' | \
      stcatn
 
    safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt_br"

@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -25,56 +26,56 @@ check_services_do() {
 
    local systemctl_output_without_legend systemctl_output_with_legend
 
-   systemctl_output_without_legend="$($machine_command_machine 2>&1)" || true
+   systemctl_output_without_legend="$(${machine_command_machine} 2>&1)" || true
 
    ## Drop CLI-ignored units (--ignore-failed-unit) from the failed-units list.
    ## Mostly useful for CI testing.
    if [ -n "${systemcheck_ignore_failed_units_cli:-}" ]; then
       local ignore_unit
       # shellcheck disable=SC2086
-      for ignore_unit in $systemcheck_ignore_failed_units_cli; do
-         systemctl_output_without_legend="$(printf '%s\n' "$systemctl_output_without_legend" | grep --invert-match --fixed-strings -- "$ignore_unit" || true)"
+      for ignore_unit in ${systemcheck_ignore_failed_units_cli}; do
+         systemctl_output_without_legend="$(printf '%s\n' "${systemctl_output_without_legend}" | grep --invert-match --fixed-strings -- "${ignore_unit}" || true)"
       done
       ## After filtering, treat a whitespace-only result as "no failed units".
-      if [[ "$systemctl_output_without_legend" =~ ^[[:space:]]*$ ]]; then
+      if [[ "${systemctl_output_without_legend}" =~ ^[[:space:]]*$ ]]; then
          systemctl_output_without_legend=""
       fi
    fi
 
-   if [ "$systemctl_output_without_legend" = "" ]; then
+   if [ "${systemctl_output_without_legend}" = "" ]; then
       local MSG
-      MSG="<p>systemd '<u>$check_type</u>' units check result: $status_ok</p>"
-      run_if_verbose emit_message info "$MSG"
+      MSG="<p>systemd '<u>${check_type}</u>' units check result: ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
-   systemctl_output_with_legend="$($machine_command_pretty 2>&1)" || true
-   systemctl_output_with_legend="$(sanitize-string -- 8192 "$systemctl_output_with_legend")"
-   systemctl_output_with_legend="$(br_add "$systemctl_output_with_legend")"
+   systemctl_output_with_legend="$(${machine_command_pretty} 2>&1)" || true
+   systemctl_output_with_legend="$(sanitize-string -- 8192 "${systemctl_output_with_legend}")"
+   systemctl_output_with_legend="$(br_add "${systemctl_output_with_legend}")"
 
    local if_you_know_what_you_are_doing_msg
    if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
 
    local MSG
-   MSG="<p>systemd '<u>$check_type</u>' units check result: One or more units failed to load.
+   MSG="<p>systemd '<u>${check_type}</u>' units check result: One or more units failed to load.
 <br />
 <br />A possible system issue was detected. There is no need to panic. This is not a serious security problem. However, it may impact other system checks.
 <br />
-<br />Some systemd '<u>$check_type</u>' units may be stuck in a failed, activating, or deactivating state.
+<br />Some systemd '<u>${check_type}</u>' units may be stuck in a failed, activating, or deactivating state.
 <br />
-Output of $machine_command_desc:
+Output of ${machine_command_desc}:
 <br/>
 <br/>########################################
-<br/><code>$systemctl_output_with_legend</code>
+<br/><code>${systemctl_output_with_legend}</code>
 <br/>########################################
 <br/>
 <br/>To check manually:
-<br/>1. Open a terminal. ($start_menu_instructions_system_first_part Terminal)
+<br/>1. Open a terminal. (${start_menu_instructions_system_first_part} Terminal)
 <br/>2. Run: <blockquote>
-<code>$machine_command_pretty</code></blockquote>
+<code>${machine_command_pretty}</code></blockquote>
 
-$if_you_know_what_you_are_doing_msg</p>"
-   emit_message warning "$MSG"
+${if_you_know_what_you_are_doing_msg}</p>"
+   emit_message warning "${MSG}"
 
    EXIT_CODE="1"
 
@@ -96,7 +97,7 @@ check_services() {
    check_type="user"
    machine_command_machine="systemctl --user --no-legend --no-pager --no-block --state=failed,activating,deactivating list-units"
    machine_command_pretty="systemctl --user --no-pager --no-block --state=failed,activating,deactivating list-units"
-   machine_command_desc="$(leaprun_cmd_describe "$machine_command_pretty")"
+   machine_command_desc="$(leaprun_cmd_describe "${machine_command_pretty}")"
    systemcheck_run_function check_services_do
 }
 
@@ -106,7 +107,7 @@ print_critical_output_message_maybe() {
    chosen_boot="${2:-}"
    if_you_know_what_you_are_doing_msg="${3:-}"
 
-   if [ -n "$critical_output" ]; then
+   if [ -n "${critical_output}" ]; then
       ## Messages such as:
       ## Bad RAM detected
       ## self-detected stall on CPU
@@ -119,25 +120,25 @@ print_critical_output_message_maybe() {
 <br />There is no need to panic. This is not a serious security issue. However, it may affect other system checks. These messages might indicate hardware or software problems.
 <br />
 <br />Detected messages:
-<br /><code>$critical_output</code>
-<br/>$if_you_know_what_you_are_doing_msg</p>"
-      emit_message error "$MSG"
+<br /><code>${critical_output}</code>
+<br/>${if_you_know_what_you_are_doing_msg}</p>"
+      emit_message error "${MSG}"
 
-      if [ "$systemcheck_virtualizer_detected" = "oracle" ]; then
-         if printf '%s\n' "$critical_output" | grep --ignore-case --fixed-strings -- "self-detected stall on CPU" >/dev/null; then
+      if [ "${systemcheck_virtualizer_detected}" = "oracle" ]; then
+         if printf '%s\n' "${critical_output}" | grep --ignore-case --fixed-strings -- "self-detected stall on CPU" >/dev/null; then
             MSG="\
 <p>systemd critical journal messages check result (<u>${chosen_boot}</u> boot): systemd journal contains <code>self-detected stall on CPU</code>.
 <br />
 <br />VirtualBox has been identified as your virtualizer (virtual machine software).
 <br />
 <br />Guess: Are you using VirtualBox on a Windows host operating system? If so, you might be experiencing the \"VirtualBox green turtle issue.\" For more information and how to resolve it, see: <a href=${PROJECT_HOMEPAGE}/wiki/VirtualBox/Green_Turtle_Issue>${PROJECT_HOMEPAGE}/wiki/VirtualBox/Green_Turtle_Issue</a>
-<br/>$if_you_know_what_you_are_doing_msg</p>"
-            emit_message error "$MSG"
+<br/>${if_you_know_what_you_are_doing_msg}</p>"
+            emit_message error "${MSG}"
          fi
       fi
    else
-      MSG="<p>systemd critical journal messages check result (<u>${chosen_boot}</u> boot): $status_ok</p>"
-      run_if_verbose emit_message info "$MSG"
+      MSG="<p>systemd critical journal messages check result (<u>${chosen_boot}</u> boot): ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
    fi
 }
 
@@ -147,19 +148,19 @@ print_verbose_log_output_message_maybe() {
    chosen_boot="${2:-}"
    if_you_know_what_you_are_doing_msg="${3:-}"
 
-   if [ -n "$log_output" ]; then
+   if [ -n "${log_output}" ]; then
       EXIT_CODE="1"
 
       MSG="<p>systemd journal check result (<u>${chosen_boot}</u> boot):
 <br/>########################################
-<br/><code>$log_output</code>
+<br/><code>${log_output}</code>
 <br/>########################################
-<br/>$if_you_know_what_you_are_doing_msg</p>"
+<br/>${if_you_know_what_you_are_doing_msg}</p>"
 
-      emit_message warning "$MSG"
+      emit_message warning "${MSG}"
    else
-      MSG="<p>systemd journal check result (<u>${chosen_boot}</u> boot): $status_ok</p>"
-      emit_message info "$MSG"
+      MSG="<p>systemd journal check result (<u>${chosen_boot}</u> boot): ${status_ok}</p>"
+      emit_message info "${MSG}"
    fi
 }
 
@@ -172,10 +173,10 @@ apply_journal_ignore_cli() {
    input="${1:-}"
    if [ -z "${systemcheck_journal_ignore_fixed_cli:-}" ] \
       && [ -z "${systemcheck_journal_ignore_match_cli:-}" ]; then
-      printf '%s' "$input"
+      printf '%s' "${input}"
       return 0
    fi
-   result="$input"
+   result="${input}"
    if [ -n "${systemcheck_journal_ignore_fixed_cli:-}" ]; then
       ## TODO: Should we remove --ignore-case? systemd unit names are
       ## case-sensitive.
@@ -183,23 +184,23 @@ apply_journal_ignore_cli() {
       ## TODO: Is there some way to make
       ## systemcheck_journal_ignore_{fixed,match}_cli into arrays?
       while IFS= read -r journal_ignore_pattern; do
-         [ -n "$journal_ignore_pattern" ] || continue
-         grep_ignore_cli_command+=(-e "$journal_ignore_pattern")
-      done <<< "$systemcheck_journal_ignore_fixed_cli"
-      result="$(printf '%s\n' "$result" | "${grep_ignore_cli_command[@]}")" || true
+         [ -n "${journal_ignore_pattern}" ] || continue
+         grep_ignore_cli_command+=(-e "${journal_ignore_pattern}")
+      done <<< "${systemcheck_journal_ignore_fixed_cli}"
+      result="$(printf '%s\n' "${result}" | "${grep_ignore_cli_command[@]}")" || true
    fi
    if [ -n "${systemcheck_journal_ignore_match_cli:-}" ]; then
       grep_ignore_cli_command=(grep --invert-match --extended-regexp --ignore-case)
       while IFS= read -r journal_ignore_pattern; do
-         [ -n "$journal_ignore_pattern" ] || continue
-         grep_ignore_cli_command+=(-e "$journal_ignore_pattern")
-      done <<< "$systemcheck_journal_ignore_match_cli"
-      result="$(printf '%s\n' "$result" | "${grep_ignore_cli_command[@]}")" || true
+         [ -n "${journal_ignore_pattern}" ] || continue
+         grep_ignore_cli_command+=(-e "${journal_ignore_pattern}")
+      done <<< "${systemcheck_journal_ignore_match_cli}"
+      result="$(printf '%s\n' "${result}" | "${grep_ignore_cli_command[@]}")" || true
    fi
    if [[ "${result//<br \/>/}" =~ ^[[:space:]]*$ ]]; then
       return 0
    fi
-   printf '%s' "$result"
+   printf '%s' "${result}"
 }
 
 check_journal() {
@@ -222,8 +223,8 @@ check_journal() {
    last_boot_critical_output="$(leaprun log-checker-check_critical_logs)" || true
 
    ## We intentionally do not filter the *_critical_output vars.
-   log_output="$(apply_journal_ignore_cli "$log_output")"
-   last_boot_log_output="$(apply_journal_ignore_cli "$last_boot_log_output")"
+   log_output="$(apply_journal_ignore_cli "${log_output}")"
+   last_boot_log_output="$(apply_journal_ignore_cli "${last_boot_log_output}")"
 
    local if_you_know_what_you_are_doing_msg
    if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
@@ -237,7 +238,7 @@ check_journal() {
       'previous' \
       "${if_you_know_what_you_are_doing_msg}"
 
-   if [ "$verbose" -lt "1" ]; then
+   if [ "${verbose}" -lt "1" ]; then
       return 0
    fi
 
@@ -254,7 +255,7 @@ check_journal() {
 }
 
 check_whonix_firewall_systemd_status() {
-   if [ "$vm_lower_case_short" = "machine" ]; then
+   if [ "${vm_lower_case_short}" = "machine" ]; then
       return 0
    fi
 
@@ -265,23 +266,23 @@ check_whonix_firewall_systemd_status() {
       extra_text="Failure file <code>/run/anon-firewall/failed.status</code> exists!"
    else
       anon_firewall_failed_file_exists=false
-      extra_text="Failure file <code>/run/anon-firewall/failed.status</code> does not exist, $status_ok"
+      extra_text="Failure file <code>/run/anon-firewall/failed.status</code> does not exist, ${status_ok}"
    fi
 
    systemctl_status_whonix_firewall_exit_code="0"
    systemctl_status_whonix_firewall_output="$(leaprun whonix-firewall-status 2>&1)" || { systemctl_status_whonix_firewall_exit_code="$?" ; true; }
-   systemctl_status_whonix_firewall_output="$(sanitize-string -- 8192 "$systemctl_status_whonix_firewall_output")"
-   systemctl_status_whonix_firewall_output="$(br_add "$systemctl_status_whonix_firewall_output")"
+   systemctl_status_whonix_firewall_output="$(sanitize-string -- 8192 "${systemctl_status_whonix_firewall_output}")"
+   systemctl_status_whonix_firewall_output="$(br_add "${systemctl_status_whonix_firewall_output}")"
 
-   if [ "$systemctl_status_whonix_firewall_exit_code" = "0" ] && [ "$anon_firewall_failed_file_exists" = "false" ]; then
-      local MSG="<p>Whonix firewall systemd unit check result: $status_ok</p>"
-      run_if_verbose emit_message info "$MSG"
+   if [ "${systemctl_status_whonix_firewall_exit_code}" = "0" ] && [ "${anon_firewall_failed_file_exists}" = "false" ]; then
+      local MSG="<p>Whonix firewall systemd unit check result: ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
    journalctl_whonix_firewall_output="$(leaprun read-journalctl-logs-whonix-firewall)" || true
-   journalctl_whonix_firewall_output="$(sanitize-string -- 8192 "$journalctl_whonix_firewall_output")"
-   journalctl_whonix_firewall_output="$(br_add "$journalctl_whonix_firewall_output")"
+   journalctl_whonix_firewall_output="$(sanitize-string -- 8192 "${journalctl_whonix_firewall_output}")"
+   journalctl_whonix_firewall_output="$(br_add "${journalctl_whonix_firewall_output}")"
 
    local if_you_know_what_you_are_doing_msg
    if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
@@ -290,22 +291,22 @@ check_whonix_firewall_systemd_status() {
 <br/>
 <br/>The whonix_firewall failed to load for an unknown reason. This might be due to a misconfiguration or a race condition. Try restarting the VM to see if the issue persists.
 <br/>
-<br/>$extra_text
+<br/>${extra_text}
 <br/>
 <br/>Output of <code>systemctl status whonix-firewall</code>:
 <br/>
 <br/>########################################
-<br/><code>$systemctl_status_whonix_firewall_output</code>
+<br/><code>${systemctl_status_whonix_firewall_output}</code>
 <br/>########################################
 <br/>
 <br/>Output of <code>journalctl --boot -u whonix-firewall</code>:
 <br/>
 <br/>########################################
-<br/><code>$journalctl_whonix_firewall_output</code>
+<br/><code>${journalctl_whonix_firewall_output}</code>
 <br/>########################################
 <br/>
 <br/>To investigate manually:
-<br/>1. Open a terminal. ($start_menu_instructions_system_first_part Terminal)
+<br/>1. Open a terminal. (${start_menu_instructions_system_first_part} Terminal)
 <br/>2. Run:
 <blockquote><code>sudo systemctl status whonix-firewall</code></blockquote>
 <br/>2. Also run:
@@ -313,10 +314,10 @@ check_whonix_firewall_systemd_status() {
 <br/>3. Try to manually start the Whonix firewall:
 <blockquote><code>sudo whonix_firewall</code></blockquote>
 
-$if_you_know_what_you_are_doing_msg
+${if_you_know_what_you_are_doing_msg}
 </p>"
 
-   emit_message error "$MSG"
+   emit_message error "${MSG}"
 
    EXIT_CODE="1"
    return 0

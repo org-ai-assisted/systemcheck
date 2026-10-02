@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -13,26 +14,26 @@ check_meta_packages() {
    if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
    see_also_link="<a href=${PROJECT_HOMEPAGE}/wiki/Debian_Packages>${PROJECT_HOMEPAGE}/wiki/Debian_Packages</a>"
 
-   if [ "$qubes_detected" = "true" ]; then
+   if [ "${qubes_detected}" = "true" ]; then
       meta_package_wanted_list="<code>qubes-whonix-gateway</code> or <code>qubes-whonix-workstation</code>"
-      if [ "$vm_lower_case_short" = "gateway" ]; then
+      if [ "${vm_lower_case_short}" = "gateway" ]; then
          meta_package_wanted_list="\
 whonix-gateway-qubes-gui-lxqt \
 whonix-gateway-qubes-server \
 whonix-gateway-qubes-cli"
-      elif [ "$vm_lower_case_short" = "workstation" ]; then
+      elif [ "${vm_lower_case_short}" = "workstation" ]; then
          meta_package_wanted_list="\
 whonix-workstation-qubes-gui-lxqt \
 whonix-workstation-qubes-server \
 whonix-workstation-qubes-cli"
-      elif [ "$vm_lower_case_short" = "machine" ]; then
+      elif [ "${vm_lower_case_short}" = "machine" ]; then
          meta_package_wanted_list="\
 kicksecure-qubes-gui-lxqt \
 kicksecure-qubes-server \
 kicksecure-qubes-cli"
       fi
    else
-      if [ "$vm_lower_case_short" = "gateway" ]; then
+      if [ "${vm_lower_case_short}" = "gateway" ]; then
          meta_package_wanted_list="\
 whonix-gateway-vm-gui-lxqt \
 whonix-gateway-vm-server \
@@ -40,7 +41,7 @@ whonix-gateway-vm-cli \
 whonix-gateway-baremetal-gui-lxqt \
 whonix-gateway-baremetal-server \
 whonix-gateway-baremetal-cli"
-      elif [ "$vm_lower_case_short" = "workstation" ]; then
+      elif [ "${vm_lower_case_short}" = "workstation" ]; then
          meta_package_wanted_list="\
 whonix-workstation-vm-gui-lxqt \
 whonix-workstation-vm-server \
@@ -48,7 +49,7 @@ whonix-workstation-vm-cli \
 whonix-workstation-baremetal-gui-lxqt \
 whonix-workstation-baremetal-server \
 whonix-workstation-baremetal-cli"
-      elif [ "$vm_lower_case_short" = "machine" ]; then
+      elif [ "${vm_lower_case_short}" = "machine" ]; then
          meta_package_wanted_list="\
 kicksecure-vm-gui-lxqt \
 kicksecure-vm-server \
@@ -60,7 +61,7 @@ kicksecure-baremetal-cli"
    fi
 
    ## Fallback if neither gateway nor workstation was detected.
-   if [ "$meta_package_wanted_list" = "" ]; then
+   if [ "${meta_package_wanted_list}" = "" ]; then
       meta_package_wanted_list="\
 whonix-gateway-vm-gui-lxqt \
 whonix-gateway-vm-server \
@@ -76,54 +77,54 @@ whonix-workstation-baremetal-server \
 whonix-workstation-baremetal-cli"
    fi
 
-   for meta_package_wanted_item in $meta_package_wanted_list ; do
-      if dpkg --status "$meta_package_wanted_item" &> /dev/null ; then
-         meta_package_installed="$meta_package_wanted_item"
-         local MSG="<p>$PROJECT_NAME Meta Packages Test Result: Meta package <code>$meta_package_installed</code> installed, $status_ok</p>"
-         run_if_verbose emit_message info "$MSG"
+   for meta_package_wanted_item in ${meta_package_wanted_list} ; do
+      if dpkg --status "${meta_package_wanted_item}" &> /dev/null ; then
+         meta_package_installed="${meta_package_wanted_item}"
+         local MSG="<p>${PROJECT_NAME} Meta Packages Test Result: Meta package <code>${meta_package_installed}</code> installed, ${status_ok}</p>"
+         run_if_verbose emit_message info "${MSG}"
       fi
    done
 
-   if [ ! "$meta_package_installed" = "" ]; then
+   if [ ! "${meta_package_installed}" = "" ]; then
       return 0
    fi
 
-   local MSG="<p>$PROJECT_NAME Meta Packages Test Result: No meta package is installed.<br />
+   local MSG="<p>${PROJECT_NAME} Meta Packages Test Result: No meta package is installed.<br />
 Did you accidentally uninstall it?<br />
 <br />
 Make sure any of the following meta packages is installed.<br />
 <br />
-<code>$meta_package_wanted_list</code>
+<code>${meta_package_wanted_list}</code>
 <br />
-<br />See also: $see_also_link
+<br />See also: ${see_also_link}
 <br />
-<br />$if_you_know_what_you_are_doing_msg</p>"
+<br />${if_you_know_what_you_are_doing_msg}</p>"
 
    EXIT_CODE="1"
    ## TODO: Maybe this should be an error rather than a warning?
-   emit_message warning "$MSG"
+   emit_message warning "${MSG}"
 }
 
 check_unwanted_packages() {
    local unwanted_package unwanted_packages_list unwanted_packages_counter dpkg_query_result first
    unwanted_packages_counter="0"
-   for unwanted_package in $systemcheck_unwanted_package ; do
-      dpkg_query_result="$(dpkg-query --show --showformat='${Status}\n' "$unwanted_package" 2>/dev/null)" || true
+   for unwanted_package in ${systemcheck_unwanted_package} ; do
+      dpkg_query_result="$(dpkg-query --show --showformat='${Status}\n' "${unwanted_package}" 2>/dev/null)" || true
       ## dpkg_query_result example:
       ## when installed           : install ok installed
       ## when not fully installed : install ok unpacked
       ## when removed             : deinstall ok config-files
       ## when purged, no stdout
-      read -r first _ <<< "$dpkg_query_result"
-      if [ "install" = "$first" ]; then
-         unwanted_packages_counter="$(( $unwanted_packages_counter + 1 ))"
-         unwanted_packages_list+="$unwanted_package "
+      read -r first _ <<< "${dpkg_query_result}"
+      if [ "install" = "${first}" ]; then
+         unwanted_packages_counter="$(( ${unwanted_packages_counter} + 1 ))"
+         unwanted_packages_list+="${unwanted_package} "
       fi
    done
 
-   if [ "$unwanted_packages_counter" = "0" ]; then
-      local MSG="<p>$PROJECT_NAME Unwanted Packages Test Result: None found, $status_ok</p>"
-      run_if_verbose emit_message info "$MSG"
+   if [ "${unwanted_packages_counter}" = "0" ]; then
+      local MSG="<p>${PROJECT_NAME} Unwanted Packages Test Result: None found, ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
@@ -132,31 +133,31 @@ check_unwanted_packages() {
    see_also_link="<a href=${PROJECT_HOMEPAGE}/wiki/Debian_Packages>${PROJECT_HOMEPAGE}/wiki/Debian_Packages</a>"
 
    local packages_help_msg
-   packages_help_msg="<br/>1. Open a terminal. ($persistent_changes_start_menu_instructions_first_part Terminal)
-<br/>2. Purge. <blockquote><code>sudo apt-get purge $unwanted_packages_list</code></blockquote>"
+   packages_help_msg="<br/>1. Open a terminal. (${persistent_changes_start_menu_instructions_first_part} Terminal)
+<br/>2. Purge. <blockquote><code>sudo apt-get purge ${unwanted_packages_list}</code></blockquote>"
 
-   if [ "$qubes_detected" = "true" ]; then
-      if [ "$qubes_vm_persistence" = "full" ]; then
+   if [ "${qubes_detected}" = "true" ]; then
+      if [ "${qubes_vm_persistence}" = "full" ]; then
          ## Running in either StandaloneVM or TemplateVM.
          ## Above existing packages_help_msg is fine.
          true
       else
          ## TemplateBasedVM
-         packages_help_msg="<br/>1. Open a terminal. ($persistent_changes_start_menu_instructions_first_part Terminal)
-<br/>2. Purge. <blockquote><code>sudo apt-get purge $unwanted_packages_list</code></blockquote>
-<br/>3. Shutdown your TemplateVM. (dom0 - Qubes VM Manager - right click '<code>$qubes_base_template</code>' - Shutdown VM)
-<br/>4. Shutdown and restart this TemplateBased <code>$qubes_vm_type</code>. (dom0 - Qubes VM Manager - right click '<code>$qubes_name_of_vm</code>' - Shutdown VM)"
+         packages_help_msg="<br/>1. Open a terminal. (${persistent_changes_start_menu_instructions_first_part} Terminal)
+<br/>2. Purge. <blockquote><code>sudo apt-get purge ${unwanted_packages_list}</code></blockquote>
+<br/>3. Shutdown your TemplateVM. (dom0 - Qubes VM Manager - right click '<code>${qubes_base_template}</code>' - Shutdown VM)
+<br/>4. Shutdown and restart this TemplateBased <code>${qubes_vm_type}</code>. (dom0 - Qubes VM Manager - right click '<code>${qubes_name_of_vm}</code>' - Shutdown VM)"
       fi
    fi
 
-   local MSG="<p>$PROJECT_NAME Unwanted Packages Test Result: $unwanted_packages_counter unwanted package(s) installed. \
-It is recommended that you remove them from $update_where.
-$packages_help_msg
-<br />See also: $see_also_link
-<br />$if_you_know_what_you_are_doing_msg</p>"
+   local MSG="<p>${PROJECT_NAME} Unwanted Packages Test Result: ${unwanted_packages_counter} unwanted package(s) installed. \
+It is recommended that you remove them from ${update_where}.
+${packages_help_msg}
+<br />See also: ${see_also_link}
+<br />${if_you_know_what_you_are_doing_msg}</p>"
    EXIT_CODE="1"
    ## TODO: Maybe this should be an error rather than a warning?
-   emit_message warning "$MSG"
+   emit_message warning "${MSG}"
 }
 
 check_packages() {

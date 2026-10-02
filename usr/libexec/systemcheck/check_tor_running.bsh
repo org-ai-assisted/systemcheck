@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -16,22 +17,22 @@ check_tor_running_do() {
 
    ## Only check on Whonix-Gateway.
    if [ ! -e "/usr/share/anon-gw-base-files/gateway" ]; then
-      tor_pid_message="Not running on Whonix-Gateway, therefore skipping, $status_ok"
+      tor_pid_message="Not running on Whonix-Gateway, therefore skipping, ${status_ok}"
       tor_pid_exit_code="0"
       return 0
    fi
 
    ## Skip in Qubes-Whonix-Gateway TemplateVM, because Tor is not running there.
    if test -f /run/qubes/this-is-templatevm ; then
-      tor_pid_message="Running inside a Qubes-Whonix-Gateway TemplateVM, therefore skipping, $status_ok"
+      tor_pid_message="Running inside a Qubes-Whonix-Gateway TemplateVM, therefore skipping, ${status_ok}"
       tor_pid_exit_code="0"
       return 0
    fi
 
    tor_pid_exit_code="0"
    tor_pid_output="$(leaprun check-tor-running)" || { tor_pid_exit_code="$?" ; true; };
-   tor_pid_output="$(sanitize-string -- 8192 "$tor_pid_output")"
-   tor_pid_message="$(br_add "$tor_pid_output")"
+   tor_pid_output="$(sanitize-string -- 8192 "${tor_pid_output}")"
+   tor_pid_message="$(br_add "${tor_pid_output}")"
    return 0
 }
 
@@ -39,7 +40,7 @@ check_tor_running() {
    ## returns: tor_pid_exit_code, tor_pid_message
    check_tor_running_do
 
-   if [ ! "$tor_pid_exit_code" = "0" ]; then
+   if [ ! "${tor_pid_exit_code}" = "0" ]; then
       local remediation
       remediation="$(remediation_instructions "systemctl restart tor@default")"
       local MSG="<p>\
@@ -49,13 +50,13 @@ Tor Running Check Result: <b>Tor is not running.</b>
 <br>
 <br>Restart Tor after you fix this error.
 
-<blockquote>    $start_menu_instructions_system_first_part Restart Tor</blockquote>
+<blockquote>    ${start_menu_instructions_system_first_part} Restart Tor</blockquote>
 <br>Or alternatively:
 ${remediation}
 
 Restart <code>systemcheck</code> after you fix this error.
 
-<blockquote>   $start_menu_instructions_system_first_part System Check</blockquote>
+<blockquote>   ${start_menu_instructions_system_first_part} System Check</blockquote>
    or in Terminal: <code><blockquote>systemcheck</blockquote></code>
 
 See also:
@@ -63,12 +64,12 @@ See also:
 <br>
 <br>Debugging information:
 <br>
-<br>$tor_pid_message</p>"
-      emit_message error "$MSG"
+<br>${tor_pid_message}</p>"
+      emit_message error "${MSG}"
       EXIT_CODE="1"
       return 0
    else
-      local MSG="<p>Tor Running Check Result: $tor_pid_message</p>"
-      run_if_verbose emit_message info "$MSG"
+      local MSG="<p>Tor Running Check Result: ${tor_pid_message}</p>"
+      run_if_verbose emit_message info "${MSG}"
    fi
 }

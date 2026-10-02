@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -9,8 +10,8 @@
 check_tirdad_module() {
    local link_tirdad help_msg only_if_verbose output_type crit_issue \
       help_link_sb status_text
-   if [ "$silent" -ge "4" ]; then
-      true "silent is $silent. Skipping ${FUNCNAME[0]}."
+   if [ "${silent}" -ge "4" ]; then
+      true "silent is ${silent}. Skipping ${FUNCNAME[0]}."
       return 0
    fi
 
@@ -26,14 +27,14 @@ check_tirdad_module() {
 - Known Qubes issue: <a href=https://github.com/QubesOS/qubes-issues/issues/9570>https://github.com/QubesOS/qubes-issues/issues/9570</a>
 - No need to report this."
    ## Variable 'secure_boot_status_enabled' is set in 'check_secure_boot.bsh'.
-   elif [ "$intel_amd_64_detected" = "false" ]; then
+   elif [ "${intel_amd_64_detected}" = "false" ]; then
       only_if_verbose=true
       output_type="info"
       help_msg="
-- Reason: Not using architecture Intel/AMD64. Architecture '<code>$ARCH</code>' is <a href=https://www.kicksecure.com/wiki/Unsupported>unsupported</a>.
+- Reason: Not using architecture Intel/AMD64. Architecture '<code>${ARCH}</code>' is <a href=https://www.kicksecure.com/wiki/Unsupported>unsupported</a>.
 - Known tirdad issue: <a href=https://www.kicksecure.com/wiki/Tirdad#Architecture_Support>https://www.kicksecure.com/wiki/Tirdad#Architecture_Support</a>
 - No need to report this."
-   elif [ "$secure_boot_status_enabled" = "true" ]; then
+   elif [ "${secure_boot_status_enabled}" = "true" ]; then
       ## This must be reported even if verbose mode is off, the absence of
       ## tirdad is a notable security reduction that the user probably can
       ## resolve.
@@ -45,14 +46,14 @@ check_tirdad_module() {
 - Reason: kernel module 'tirdad' is NOT loaded.
 - This only matters if internet connectivity is used.
 - Secure Boot is enabled; in live mode a Secure Boot DKMS Signing Key cannot be enrolled.
-- Refer to the Kicksecure wiki: $help_link_sb
+- Refer to the Kicksecure wiki: ${help_link_sb}
 - No need to report this. Please read the documentation."
       else
          help_msg="
 - Reason: kernel module 'tirdad' is NOT loaded.
 - This only matters if internet connectivity is used.
 - Secure Boot is enabled. Secure Boot DKMS Signing Key Enrollment may be required.
-- Refer to the Kicksecure wiki: $help_link_sb
+- Refer to the Kicksecure wiki: ${help_link_sb}
 - No need to report this. Please read the documentation."
       fi
    else
@@ -64,17 +65,17 @@ check_tirdad_module() {
    fi
 
    if grep --ignore-case --fixed-strings -- "tirdad" >/dev/null < <(lsmod); then
-      emit_status_line info "$status_text" "$link_tirdad" green "Enabled"
+      emit_status_line info "${status_text}" "${link_tirdad}" green "Enabled"
    else
-      if [ "$only_if_verbose" = "true" ] && [ "$verbose" -lt "1" ]; then
+      if [ "${only_if_verbose}" = "true" ] && [ "${verbose}" -lt "1" ]; then
          true "Skipping tirdad warning: benign case and not in verbose mode."
          return 0
       fi
 
-      if [ "$crit_issue" = "true" ]; then
+      if [ "${crit_issue}" = "true" ]; then
          EXIT_CODE="1"
       fi
 
-      emit_status_line "$output_type" "$status_text" "$link_tirdad" orange "Disabled" "$help_msg"
+      emit_status_line "${output_type}" "${status_text}" "${link_tirdad}" orange "Disabled" "${help_msg}"
    fi
 }

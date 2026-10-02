@@ -2,28 +2,29 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 check_ip_forwarding_disabled() {
    if [ ! -f "/usr/share/anon-gw-base-files/gateway" ]; then
-      local MSG="<p>IP Forwarding Result: not running on Whonix-Gateway, skipping, $status_ok</p>"
-      run_if_verbose emit_message info "$MSG"
+      local MSG="<p>IP Forwarding Result: not running on Whonix-Gateway, skipping, ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
    local file_list file_name
    file_list="/proc/sys/net/ipv4/ip_forward /proc/sys/net/ipv6/ip_forward"
 
-   for file_name in $file_list; do
+   for file_name in ${file_list}; do
       local ip_forwarding=""
       local temp=""
       local MSG=""
 
-      if [ ! -f "$file_name" ]; then
-         local temp="$file_name does not exist."
-         if [ "$file_name" = "/proc/sys/net/ipv6/ip_forward" ]; then
+      if [ ! -f "${file_name}" ]; then
+         local temp="${file_name} does not exist."
+         if [ "${file_name}" = "/proc/sys/net/ipv6/ip_forward" ]; then
             ## If /proc/sys/net/ipv4/ip_forward would not exist, systemcheck
             ## would probably run on an unsupported platform.
             ## /proc/sys/net/ipv6/ip_forward not existing is expected, because
@@ -32,34 +33,34 @@ check_ip_forwarding_disabled() {
             continue
          fi
       else
-         ip_forwarding="$(cat "$file_name")"
-         ip_forwarding="$(sanitize-string -- 255 "$ip_forwarding")"
+         ip_forwarding="$(cat "${file_name}")"
+         ip_forwarding="$(sanitize-string -- 255 "${ip_forwarding}")"
 
-         if [ "$ip_forwarding" = "0" ]; then
-            local MSG="<p>IP Forwarding Result: $file_name is 0, $status_ok</p>"
-            run_if_verbose emit_message info "$MSG"
+         if [ "${ip_forwarding}" = "0" ]; then
+            local MSG="<p>IP Forwarding Result: ${file_name} is 0, ${status_ok}</p>"
+            run_if_verbose emit_message info "${MSG}"
             continue
          else
-            local temp="$file_name is $ip_forwarding."
+            local temp="${file_name} is ${ip_forwarding}."
          fi
       fi
 
-      if [ "$NO_EXIT_ON_IP_FORWARDING_DETECTION" = "1" ]; then
-         local MSG="IP Forwarding Result: $temp"
+      if [ "${NO_EXIT_ON_IP_FORWARDING_DETECTION}" = "1" ]; then
+         local MSG="IP Forwarding Result: ${temp}"
 
-         emit_message info "$MSG"
+         emit_message info "${MSG}"
          continue
       else
          local if_you_know_what_you_are_doing_msg
          if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
          ## "IP Forwarding Result:$temp    ## was in MSG below
-         local MSG="<p><b>IP Forwarding enabled! This is unsupported by $PROJECT_NAME developers! systemcheck aborted!</b>
+         local MSG="<p><b>IP Forwarding enabled! This is unsupported by ${PROJECT_NAME} developers! systemcheck aborted!</b>
 <br/>Using IP Forwarding on Whonix-Gateway is recommended against, due to risks of leaks.
 <br/>This might endanger your anonymity.
 <br />
-<br />$if_you_know_what_you_are_doing_msg</p>"
+<br />${if_you_know_what_you_are_doing_msg}</p>"
 
-         emit_message error "$MSG"
+         emit_message error "${MSG}"
          EXIT_CODE="1"
          cleanup "1"
          continue

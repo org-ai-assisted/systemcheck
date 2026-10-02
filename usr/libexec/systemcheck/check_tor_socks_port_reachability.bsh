@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -16,13 +17,15 @@ check_tor_socks_port_reachability() {
    local SOCKS_PORT_SYSTEMCHECK
    SOCKS_PORT_SYSTEMCHECK="9110"
 
-   true "FUNCNAME: CURL: $CURL"
+   true "FUNCNAME: CURL: ${CURL}"
 
-   $CURL \
+   ## CURL_VERBOSE is a flag or empty; unquoted so an empty value adds no argument.
+   # shellcheck disable=SC2086
+   ${CURL} \
       --fail \
-      $CURL_VERBOSE \
+      ${CURL_VERBOSE} \
       --max-time 10 \
-      --output "$TEMP_DIR/socks_port_open_file" \
+      --output "${TEMP_DIR}/socks_port_open_file" \
       --unix-socket "/run/tor/socks" \
       "file//run/tor/socks" \
       &
@@ -34,46 +37,46 @@ check_tor_socks_port_reachability() {
    ## curl: (56) Recv failure: Connection reset by peer
 
    lastpid="$!"
-   wait "$lastpid" || { check_socks_port_open_test="$?" ; true; };
+   wait "${lastpid}" || { check_socks_port_open_test="$?" ; true; };
 
    local curl_status_message
-   curl_status_message="$(/usr/libexec/helper-scripts/curl_exit_codes "$check_socks_port_open_test")"
+   curl_status_message="$(/usr/libexec/helper-scripts/curl_exit_codes "${check_socks_port_open_test}")"
 
-   if [ "$check_socks_port_open_test" = "22" ]; then
+   if [ "${check_socks_port_open_test}" = "22" ]; then
       local MSG="<p>Tor SocksPort Reachability Test Result: Reachable. \
-(curl exit code: $check_socks_port_open_test | curl status message: $curl_status_message)</p>"
-      run_if_verbose emit_message info "$MSG"
+(curl exit code: ${check_socks_port_open_test} | curl status message: ${curl_status_message})</p>"
+      run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
-   if [ "$check_socks_port_open_test" = "7" ]; then
+   if [ "${check_socks_port_open_test}" = "7" ]; then
       local MSG="<p>Tor SocksPort Reachability Test Result: Unreachable! \
 Failed to connect to host. Gateway likely reachable, but Tor service likely not started. \
 Either user has run <code>sudo service tor@default stop</code> or Gateway is still booting and has not started Tor service yet. \
-(curl exit code: $check_socks_port_open_test | curl status message: $curl_status_message)</p>"
-      if [ "$verbose" -ge "1" ]; then
-         emit_message warning "$MSG"
+(curl exit code: ${check_socks_port_open_test} | curl status message: ${curl_status_message})</p>"
+      if [ "${verbose}" -ge "1" ]; then
+         emit_message warning "${MSG}"
          EXIT_CODE="1"
       fi
-   elif [ "$check_socks_port_open_test" = "28" ]; then
-      if [ "$VM" = "Whonix-Gateway" ]; then
+   elif [ "${check_socks_port_open_test}" = "28" ]; then
+      if [ "${VM}" = "Whonix-Gateway" ]; then
          local MSG="<p>Tor SocksPort Reachability Test Result: Unreachable! \
 Gateway likely powered off. \
-(curl exit code: $check_socks_port_open_test | curl status message: $curl_status_message)</p>"
+(curl exit code: ${check_socks_port_open_test} | curl status message: ${curl_status_message})</p>"
       else
          local MSG="<p>Tor SocksPort Reachability Test Result: Unreachable! \
-(curl exit code: $check_socks_port_open_test | curl status message: $curl_status_message)</p>"
+(curl exit code: ${check_socks_port_open_test} | curl status message: ${curl_status_message})</p>"
       fi
-      if [ "$verbose" -ge "1" ]; then
-         emit_message warning "$MSG"
+      if [ "${verbose}" -ge "1" ]; then
+         emit_message warning "${MSG}"
          EXIT_CODE="1"
       fi
    else
       local MSG="<p>Tor SocksPort Reachability Test Result: Unreachable! \
 Unexpected error! \
-(curl exit code: $check_socks_port_open_test | curl status message: $curl_status_message)</p>"
-      if [ "$verbose" -ge "1" ]; then
-         emit_message error "$MSG"
+(curl exit code: ${check_socks_port_open_test} | curl status message: ${curl_status_message})</p>"
+      if [ "${verbose}" -ge "1" ]; then
+         emit_message error "${MSG}"
          EXIT_CODE="1"
       fi
    fi

@@ -21,14 +21,14 @@ process_killer_helper() {
    ## a non-zero exit code if the process is owned by a different user.
    local ps_p_exit_code
    ps_p_exit_code="0"
-   ps -p "$lastpid" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
+   ps -p "${lastpid}" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
 
-   if [ ! "$ps_p_exit_code" = "0" ]; then
+   if [ ! "${ps_p_exit_code}" = "0" ]; then
       return 0
    fi
 
    ## >/dev/null 2>/dev/null to prevent seeing error due to race conditions (process in meanwhile already terminated).
-   kill -s sigterm "$lastpid" >/dev/null 2>/dev/null || true
+   kill -s sigterm "${lastpid}" >/dev/null 2>/dev/null || true
 
    local i
    i="0"
@@ -37,17 +37,17 @@ process_killer_helper() {
    while true; do
       local ps_p_exit_code
       ps_p_exit_code="0"
-      ps -p "$lastpid" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
+      ps -p "${lastpid}" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
 
-      if [ ! "$ps_p_exit_code" = "0" ]; then
+      if [ ! "${ps_p_exit_code}" = "0" ]; then
          ## ps_p_exit_code is not 0, process no longer running. That's it.
          return 0
       fi
       ## Process still running.
 
       ## Wait up to 5 seconds for the process to terminate.
-      i="$(( $i + 1 ))"
-      if [ "$i" -lt "5" ]; then
+      i="$(( ${i} + 1 ))"
+      if [ "${i}" -lt "5" ]; then
          light_sleep 1
          continue
       fi
@@ -55,7 +55,7 @@ process_killer_helper() {
    done
 
    ## Seems like process still running. Terminating using sigkill.
-   kill -s sigkill "$lastpid" >/dev/null 2>/dev/null || true
+   kill -s sigkill "${lastpid}" >/dev/null 2>/dev/null || true
 
    return 0
 }

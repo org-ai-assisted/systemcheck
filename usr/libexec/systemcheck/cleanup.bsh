@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -18,7 +19,7 @@
 ## to manually use apt-get, it would show an error because the apt-get lockfile
 ## would still exist.
 maybe_kill_apt_get_update() {
-   if [ "$apt_get_update_pid" = "" ]; then
+   if [ "${apt_get_update_pid}" = "" ]; then
       ## Pid never set. Either the check_operating_system check has been disabled,
       ## or signal received earlier or this isn't systemcheck. Either way.
       ## Nothing to do.
@@ -28,9 +29,9 @@ maybe_kill_apt_get_update() {
    ## Check if apt-get-update has already terminated.
    local ps_p_exit_code
    ps_p_exit_code="0"
-   ps -p "$apt_get_update_pid" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
+   ps -p "${apt_get_update_pid}" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
 
-   if [ ! "$ps_p_exit_code" = "0" ]; then
+   if [ ! "${ps_p_exit_code}" = "0" ]; then
       ## apt-get-update already terminated, nothing to do.
       return 0
    fi

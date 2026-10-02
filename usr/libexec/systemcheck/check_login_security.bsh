@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## globals set by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -15,12 +16,12 @@ check_login_security() {
       table_settings_cli table_users_entry table_settings_gui_entry \
       table_settings_cli_entry table_str_gui table_str_cli user_list_str \
       password_status_list_str qubes_default_user
-   if [ "$silent" -ge "4" ]; then
-      true "silent is $silent. Skipping ${FUNCNAME[0]}."
+   if [ "${silent}" -ge "4" ]; then
+      true "silent is ${silent}. Skipping ${FUNCNAME[0]}."
       return 0
    fi
 
-   local base_msg_gui="<p>$PROJECT_NAME <a href=\"https://www.kicksecure.com/wiki/Login\">Login</a> Security Check (<a href=\"https://www.kicksecure.com/wiki/Systemcheck#Login_Security_Check_-_Meaning_of_Colors\">Colors</a>)
+   local base_msg_gui="<p>${PROJECT_NAME} <a href=\"https://www.kicksecure.com/wiki/Login\">Login</a> Security Check (<a href=\"https://www.kicksecure.com/wiki/Systemcheck#Login_Security_Check_-_Meaning_of_Colors\">Colors</a>)
 :</p>
 XXX_LOGIN_SEC_TABLE_XXX
 <p>You can adjust these settings using \"Manage Passwords\" and \"Manage GUI Autologin\"
@@ -31,10 +32,10 @@ See also: <a href=\"https://www.kicksecure.com/wiki/Systemcheck#Physical_Securit
    local base_msg_cli="${base_msg_gui}"
 
    user_list_str="$(/usr/libexec/helper-scripts/get-user-list)"
-   readarray -t user_list <<< "$user_list_str"
+   readarray -t user_list <<< "${user_list_str}"
 
    password_status_list_str="$(leaprun get-password-status-list)"
-   readarray -t password_status_list <<< "$password_status_list_str"
+   readarray -t password_status_list <<< "${password_status_list_str}"
 
    autologin_status_list=()
    if [ -f '/usr/share/qubes/marker-vm' ]; then
@@ -227,7 +228,7 @@ See also: <a href=\"https://www.kicksecure.com/wiki/Systemcheck#Physical_Securit
 
    local MSG
    MSG="${base_msg_gui}"
-   $output_x "${output_opts[@]}" --messagex --typex "info" --message "$MSG"
+   ${output_x} "${output_opts[@]}" --messagex --typex "info" --message "${MSG}"
    MSG="${base_msg_cli}"
-   $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+   ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
 }

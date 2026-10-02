@@ -38,6 +38,8 @@ case "$1" in
 
       ## updatecheck no longer uses a systemd WantedBy= line to autostart,
       ## inform the system of this
+      ## style-ok: no-has
+      ## maintainer-script context: helper-scripts has() is not sourced here
       if [ ! -x "$(command -v systemctl)" ]; then
          true "INFO: systemctl command unavailable."
          return 0

@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -11,69 +12,69 @@ check_non_freedom() {
 
    ## Human readable output.
    vrms_output="$(LC_ALL=C vrms 2>&1)" || true
-   vrms_output="$(sanitize-string -- 8192 "$vrms_output")"
-   vrms_output="$(br_add "$vrms_output")"
+   vrms_output="$(sanitize-string -- 8192 "${vrms_output}")"
+   vrms_output="$(br_add "${vrms_output}")"
 
    ## For machine readable output.
    vrms_result="$(LC_ALL=C vrms --quiet --sparse 2>&1)" || true
 
    check_non_freedom_result=free
-   for line in $vrms_result ; do
-      true "line: $line"
-      if [ "$line" = "" ]; then
+   for line in ${vrms_result} ; do
+      true "line: ${line}"
+      if [ "${line}" = "" ]; then
          continue
       fi
-      for expected_package in $systemcheck_expected_non_freedom_package ; do
-         if [ "$line" = "$expected_package" ]; then
+      for expected_package in ${systemcheck_expected_non_freedom_package} ; do
+         if [ "${line}" = "${expected_package}" ]; then
             check_non_freedom_result=expected
             continue 2
          fi
       done
-      for expected_grep in $systemcheck_expected_non_freedom_grep_package ; do
-         if printf '%s\n' "$line" | grep -- "$expected_grep" >/dev/null 2>/dev/null ; then
+      for expected_grep in ${systemcheck_expected_non_freedom_grep_package} ; do
+         if printf '%s\n' "${line}" | grep -- "${expected_grep}" >/dev/null 2>/dev/null ; then
             check_non_freedom_result=expected
             continue 2
          fi
       done
       check_non_freedom_result=non_freedom
       local sanitized_line
-      sanitized_line="$(sanitize-string -- 255 "$line")"
-      local MSG="<p>Check non-freedom Result: non-freedom package found: '$sanitized_line'</p>"
-      if [ "$verbose" -ge "1" ]; then
-         $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+      sanitized_line="$(sanitize-string -- 255 "${line}")"
+      local MSG="<p>Check non-freedom Result: non-freedom package found: '${sanitized_line}'</p>"
+      if [ "${verbose}" -ge "1" ]; then
+         ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
       fi
       break
    done
 
    local non_freedomlink="<a href=${PROJECT_HOMEPAGE}/wiki/Avoid_nonfreedom_software>${PROJECT_HOMEPAGE}/wiki/Avoid_nonfreedom_software</a>"
 
-   if [ "$check_non_freedom_result" = "free" ]; then
-      local MSG="<p>Check non-freedom Result: $status_ok No non-freedom packages found. For more information, see:
-<br />$non_freedomlink</p>"
-      run_if_verbose emit_message info "$MSG"
-   elif [ "$check_non_freedom_result" = "expected" ]; then
+   if [ "${check_non_freedom_result}" = "free" ]; then
+      local MSG="<p>Check non-freedom Result: ${status_ok} No non-freedom packages found. For more information, see:
+<br />${non_freedomlink}</p>"
+      run_if_verbose emit_message info "${MSG}"
+   elif [ "${check_non_freedom_result}" = "expected" ]; then
       non_freedom_packages_detected=expected
-      local MSG="<p>Check non-freedom Result: $status_ok Only expected non-freedom packages found. For more information, see:
-<br />$non_freedomlink</p>"
-      run_if_verbose emit_message info "$MSG"
+      local MSG="<p>Check non-freedom Result: ${status_ok} Only expected non-freedom packages found. For more information, see:
+<br />${non_freedomlink}</p>"
+      run_if_verbose emit_message info "${MSG}"
       local MSG="<p><br />vrms_output:
-<br /><code>$vrms_output</code></p>"
-      if [ "$verbose" -ge "2" ]; then
-         emit_message info "$MSG"
+<br /><code>${vrms_output}</code></p>"
+      if [ "${verbose}" -ge "2" ]; then
+         emit_message info "${MSG}"
       fi
    else
       local if_you_know_what_you_are_doing_msg
       if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
       local MSG="<p>Check non-freedom Result: non-freedom packages found. This is not recommended, but acceptable if you understand the implications. For more information, see:
-<br />$non_freedomlink
+<br />${non_freedomlink}
 <br />
 <br />vrms_output:
-<br /><code>$vrms_output</code>
+<br /><code>${vrms_output}</code>
 <br />
-<br />$if_you_know_what_you_are_doing_msg</p>"
-      if [ "$verbose" -ge "1" ]; then
+<br />${if_you_know_what_you_are_doing_msg}</p>"
+      if [ "${verbose}" -ge "1" ]; then
          EXIT_CODE="1"
-         emit_message warning "$MSG"
+         emit_message warning "${MSG}"
       fi
    fi
 }

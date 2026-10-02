@@ -4,7 +4,7 @@
 Source: systemcheck
 Section: misc
 Priority: optional
-Maintainer: Patrick Schleizer <adrelanos@kicksecure.com>
+Maintainer: Patrick Schleizer <adrelanos@whonix.org>
 Build-Depends: debhelper (>= 13.11.6), debhelper-compat (= 13), dh-apparmor
 Homepage: https://www.kicksecure.com/wiki/systemcheck
 Vcs-Browser: https://github.com/Kicksecure/systemcheck

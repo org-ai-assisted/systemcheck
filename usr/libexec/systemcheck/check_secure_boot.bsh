@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2025 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## globals set by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -15,15 +16,15 @@ check_secure_boot() {
    local mokutil_present mokutil_output link_sb mokutil_link_sb reason \
       secure_boot_enabled_check_retcode
 
-   if [ "$silent" -ge "4" ]; then
-      true "silent is $silent. Skipping ${FUNCNAME[0]}."
+   if [ "${silent}" -ge "4" ]; then
+      true "silent is ${silent}. Skipping ${FUNCNAME[0]}."
       return 0
    fi
 
    link_sb="https://www.kicksecure.com/wiki/Secure_Boot"
    mokutil_link_sb="https://www.kicksecure.com/wiki/Debian#Install_mokutil"
 
-   if [ "$qubes_detected" = "true" ]; then
+   if [ "${qubes_detected}" = "true" ]; then
       reason="\
 - Reason: Qubes detected.
 - Known Qubes issue: <a href=\"https://github.com/QubesOS/qubes-issues/issues/5241\">https://github.com/QubesOS/qubes-issues/issues/5241</a>
@@ -34,9 +35,9 @@ check_secure_boot() {
    fi
 
    if ! [ -d /sys/firmware/efi ]; then
-      run_if_verbose emit_status_line info "Secure Boot" "$link_sb" orange "Unavailable" "
+      run_if_verbose emit_status_line info "Secure Boot" "${link_sb}" orange "Unavailable" "
 
-$reason"
+${reason}"
       return 0
    fi
 
@@ -52,25 +53,25 @@ $reason"
    if [ "${secure_boot_enabled_check_retcode}" = '0' ]; then
       ## Used by 'check_tirdad_module.bsh'.
       secure_boot_status_enabled=true
-      emit_status_line info "Secure Boot" "$link_sb" green "Enabled"
+      emit_status_line info "Secure Boot" "${link_sb}" green "Enabled"
    elif [ "${secure_boot_enabled_check_retcode}" = '1' ]; then
       secure_boot_status_enabled=false
-      emit_status_line info "Secure Boot" "$link_sb" orange "Disabled"
+      emit_status_line info "Secure Boot" "${link_sb}" orange "Disabled"
    else
       ## Secure Boot state could not be determined. Default the shared flag
       ## (consumed by check_tirdad_module.bsh) to false.
       secure_boot_status_enabled=false
-      mokutil_output="$(sanitize-string -- 8192 "$mokutil_output")"
-      run_if_verbose emit_status_line info "Secure Boot" "$link_sb" orange "Unknown" "
+      mokutil_output="$(sanitize-string -- 8192 "${mokutil_output}")"
+      run_if_verbose emit_status_line info "Secure Boot" "${link_sb}" orange "Unknown" "
 
 Debugging information:
 mokutil_output: '${mokutil_output}'"
    fi
 
    if [ "${mokutil_present}" = 'y' ]; then
-      run_if_verbose emit_status_line info "mokutil installed" "$mokutil_link_sb" green "Yes"
+      run_if_verbose emit_status_line info "mokutil installed" "${mokutil_link_sb}" green "Yes"
    else
-      run_if_verbose emit_status_line info "mokutil installed" "$mokutil_link_sb" orange "No"
+      run_if_verbose emit_status_line info "mokutil installed" "${mokutil_link_sb}" orange "No"
    fi
 
    ## sets: 'dkms_mok_*' variables
@@ -88,7 +89,7 @@ mokutil_output: '${mokutil_output}'"
             if [ "${mokutil_output}" = '/var/lib/dkms/mok.pub is already enrolled' ]; then
                run_if_verbose emit_status_line info "DKMS module signing keys enrolled in firmware" "" green "Yes"
             else
-               mokutil_output="$(sanitize-string -- 8192 "$mokutil_output")"
+               mokutil_output="$(sanitize-string -- 8192 "${mokutil_output}")"
                run_if_verbose emit_status_line info "DKMS module signing keys enrolled in firmware" "" orange "Unknown" "
 
 Debugging information:
@@ -126,7 +127,7 @@ check_build_mok_keys() {
       return 0
    elif [ "${check_image_builtin_mok_retcode}" = '1' ]; then
       MSG="<p>systemcheck has detected that a Machine Owner Key (MOK) embedded in the installation image is present on the disk. It can be automatically deleted, but has not been yet. Most likely this means that you did not upgrade <code>legacy-dist</code>, or did not reboot after upgrading it. Run a full system update and reboot to fix this.</p>"
-      emit_message warning "$MSG"
+      emit_message warning "${MSG}"
       return 0
    fi
 
@@ -161,7 +162,7 @@ To remove the problematic MOK:</p>
 For more information, see <a href=\"https://kicksecure.com/wiki/Secure_Boot#Regnerate_MOK_Keys\">https://kicksecure.com/wiki/Secure_Boot#Regnerate_MOK_Keys</a>.<br/>
 <br/>
 Note that this message is not an indicator of compromise. See <a href=\"https://kicksecure.com/wiki/Malware_and_Firmware_Trojans#Valid_Compromise_Indicators_versus_Invalid_Compromise_Indicators\">https://kicksecure.com/wiki/Malware_and_Firmware_Trojans#Valid_Compromise_Indicators_versus_Invalid_Compromise_Indicators</a>."
-   $output_x "${output_opts[@]}" --messagex --typex "warning" --message "$MSG"
+   ${output_x} "${output_opts[@]}" --messagex --typex "warning" --message "${MSG}"
 
    if [ "${secure_boot_enabled_check_retcode}" = '0' ]; then
       MSG="
@@ -206,5 +207,5 @@ https://kicksecure.com/wiki/Secure_Boot#Regnerate_MOK_Keys
 
 Note that this message is not an indicator of compromise. See:
 https://kicksecure.com/wiki/Malware_and_Firmware_Trojans#Valid_Compromise_Indicators_versus_Invalid_Compromise_Indicators"
-  $output_cli "${output_opts[@]}" --messagecli --typecli "warning" --message "$MSG"
+  ${output_cli} "${output_opts[@]}" --messagecli --typecli "warning" --message "${MSG}"
 }

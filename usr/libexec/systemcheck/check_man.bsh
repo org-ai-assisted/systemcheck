@@ -2,17 +2,18 @@
 
 ## Copyright (C) 2021 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## globals set by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 check_man() {
    if man --pager=cat systemcheck >/dev/null ; then
-      local MSG="<p>Check manual page (man) Result: $status_ok</p>"
-      run_if_verbose emit_message info "$MSG"
+      local MSG="<p>Check manual page (man) Result: ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
    local MSG="<p>Check manual page (man) Result: Broken. This is a minor issue. To verify, run: <code>man --pager=cat systemcheck</code></p>"
-   emit_message warning "$MSG"
+   emit_message warning "${MSG}"
 }

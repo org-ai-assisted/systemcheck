@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## globals set by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -12,7 +13,7 @@ check_full_disk_encryption() {
       return 0
    fi
 
-   if [ ! "$systemcheck_virtualizer_detected" = "none" ]; then
+   if [ ! "${systemcheck_virtualizer_detected}" = "none" ]; then
       true "VM detected. Skipping ${FUNCNAME[0]}."
       return 0
    fi
@@ -23,19 +24,19 @@ check_full_disk_encryption() {
 
    crypt_check_return_code="0"
    crypt_check_output="$(/usr/libexec/systemcheck/crypt-check 2>&1)" || crypt_check_return_code="$?"
-   crypt_check_output="$(sanitize-string -- 8192 "$crypt_check_output")"
+   crypt_check_output="$(sanitize-string -- 8192 "${crypt_check_output}")"
 
    if [ "${crypt_check_return_code}" = '0' ]; then
-      emit_status_line info "$status_text" "$link_fde" green "Enabled"
+      emit_status_line info "${status_text}" "${link_fde}" green "Enabled"
    elif [ "${crypt_check_return_code}" = '1' ]; then
-      emit_status_line info "$status_text" "$link_fde" orange "Partial"
+      emit_status_line info "${status_text}" "${link_fde}" orange "Partial"
    else
-      emit_status_line info "$status_text" "$link_fde" orange "Disabled"
+      emit_status_line info "${status_text}" "${link_fde}" orange "Disabled"
    fi
 
-   if [ "$verbose" -ge "1" ]; then
+   if [ "${verbose}" -ge "1" ]; then
       MSG="<p><code>leaprun crypt-check</code> output:
-<blockquote><code>$crypt_check_output</code></blockquote></p>"
-      emit_message info "$MSG"
+<blockquote><code>${crypt_check_output}</code></blockquote></p>"
+      emit_message info "${MSG}"
    fi
 }

@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -10,13 +11,13 @@ check_entropy() {
    # Check entropy available bits, 112 is FIPS-140 requirement
    local entropy_file entropy_size
    entropy_file="/proc/sys/kernel/random/entropy_avail"
-   entropy_size="$(cat -- "$entropy_file" 2>/dev/null)" || true
-   if ! is_whole_number "$entropy_size" || [ "${entropy_size}" -lt "112" ]; then
-      local MSG="<p>Entropy Available Check Result: low. <code>$entropy_file</code>: <code>$entropy_size</code> Please report this issue!</p>"
-      emit_message warning "$MSG"
+   entropy_size="$(cat -- "${entropy_file}" 2>/dev/null)" || true
+   if ! is_whole_number "${entropy_size}" || [ "${entropy_size}" -lt "112" ]; then
+      local MSG="<p>Entropy Available Check Result: low. <code>${entropy_file}</code>: <code>${entropy_size}</code> Please report this issue!</p>"
+      emit_message warning "${MSG}"
       EXIT_CODE="1"
    else
-      local MSG="<p>Entropy Available Check Result: $status_ok <code>$entropy_file</code>: <code>$entropy_size</code></p>"
-      run_if_verbose emit_message info "$MSG"
+      local MSG="<p>Entropy Available Check Result: ${status_ok} <code>${entropy_file}</code>: <code>${entropy_size}</code></p>"
+      run_if_verbose emit_message info "${MSG}"
    fi
 }

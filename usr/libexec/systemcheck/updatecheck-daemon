@@ -2,6 +2,8 @@
 
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+## style-ok: no-strict
+## Explicit strict options set; global 'export LC_ALL=C' omitted by design (locale forced per-command).
 
 ## Developer test command:
 #sudo genmkfile install && initial_wait_minutes=0 sleep_seconds=10 bash -x /usr/bin/updatecheck-daemon
@@ -25,7 +27,7 @@ source /usr/libexec/helper-scripts/strings.bsh
 
 ## 6 hours
 [[ -v sleep_seconds ]] || sleep_seconds="21600"
-if ! [[ -v initial_wait_minutes ]] || ! is_whole_number "$initial_wait_minutes"; then
+if ! [[ -v initial_wait_minutes ]] || ! is_whole_number "${initial_wait_minutes}"; then
   initial_wait_minutes="2"
 fi
 export sleep_seconds initial_wait_minutes
@@ -35,14 +37,15 @@ initial_wait_seconds=$(( initial_wait_minutes * 60 ))
 "${systemd_notify[@]}" --pid="$$" --ready
 
 printf "%s\n" "$0: INFO: First start. Therefore waiting for ${initial_wait_minutes} minutes for first updatecheck."
-light_sleep "$initial_wait_seconds"
+light_sleep "${initial_wait_seconds}"
 
 while true; do
    printf "%s\n" "$0: INFO: loop start."
    "${systemd_notify[@]}" --pid="$$" WATCHDOG=1
 
    if [ -o xtrace ]; then
-      bash -x /usr/bin/updatecheck &
+      ## Propagate xtrace to the child via SHELLOPTS (shebang-invoked, no interpreter prepend).
+      env SHELLOPTS="${SHELLOPTS:-}:xtrace" /usr/bin/updatecheck &
    else
       /usr/bin/updatecheck &
    fi
@@ -51,14 +54,14 @@ while true; do
 
    "${systemd_notify[@]}" --pid="$$" WATCHDOG=1
 
-   true "$0: INFO: sleep $sleep_seconds... (1/2)"
-   light_sleep "$sleep_seconds"
-   true "$0: INFO: Completed sleep $sleep_seconds. (1/2)"
+   true "$0: INFO: sleep ${sleep_seconds}... (1/2)"
+   light_sleep "${sleep_seconds}"
+   true "$0: INFO: Completed sleep ${sleep_seconds}. (1/2)"
 
    true "$0: INFO: Check if updatecheck is still running. (1/2)"
-   if kill -0 -- "$updatecheck_pid" 2>/dev/null; then
+   if kill -0 -- "${updatecheck_pid}" 2>/dev/null; then
       true "$0: INFO: updatecheck is still running. Sending signal sigterm... (1/2)"
-      kill -s sigterm -- "$updatecheck_pid" 2>/dev/null || true
+      kill -s sigterm -- "${updatecheck_pid}" 2>/dev/null || true
    fi
 
    true "$0: INFO: sleep 10..."
@@ -66,9 +69,9 @@ while true; do
    true "$0: INFO: Completed sleep 10."
 
    true "$0: INFO: Check if updatecheck is still running. (2/2)"
-   if kill -0 -- "$updatecheck_pid" 2>/dev/null; then
+   if kill -0 -- "${updatecheck_pid}" 2>/dev/null; then
       true "$0: INFO: updatecheck is still running. Sending signal sigkill... (2/2)"
-      kill -s sigkill -- "$updatecheck_pid" 2>/dev/null || true
+      kill -s sigkill -- "${updatecheck_pid}" 2>/dev/null || true
    fi
 
    printf "%s\n" "$0: INFO: loop end."

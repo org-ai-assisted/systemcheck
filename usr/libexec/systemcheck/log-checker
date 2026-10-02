@@ -155,20 +155,36 @@ check_service_logs() {
 }
 
 check_critical_logs() {
-   local critical_pattern
+   local hard_critical bug_token file
 
-   if ! test -e "${TMPDIR}/journalctl_match_filtered.txt_br"; then
+   file="${TMPDIR}/journalctl_match_filtered.txt_br"
+   if ! test -e "${file}"; then
       return 0
    fi
 
-   ## Patterns that are considered "so bad they must be shown" always.
-   ## The space before ' BUG:' is important to avoid matching 'debug:'.
-   critical_pattern='Bad RAM detected|self-detected stall on CPU| BUG:|nouveau .* channel .* killed!'
+   ## Kernel-catastrophe tokens that are ALWAYS critical ("so bad they must be shown").
+   hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
+   ## ' BUG:' catches a kernel BUG:/oops but ALSO over-matches a userspace "Bug:"
+   ## (case-insensitive); the leading space avoids 'debug:'.
+   bug_token=' BUG:'
 
-   grep --ignore-case --extended-regexp "${critical_pattern}" -- "${TMPDIR}/journalctl_match_filtered.txt_br" | \
-     stcatn
+   ## Critical = every hard_critical line, PLUS any ' BUG:' line that is NOT a userspace
+   ## self-declared "Non-fatal assertion" (Tor's tor_bug_occurred_() soft-assert path,
+   ## incl. its microdesc "Bug:"): a soft-assert declared itself survivable and kept
+   ## running, so it belongs in the ordinary warning tier (still emitted under --verbose,
+   ## --journal-ignore-able there), NOT force-shown as critical. The demotion is scoped to
+   ## the ' BUG:' token ONLY -- a hard_critical line that merely ALSO contains the phrase
+   ## stays critical. '|| true' keeps a no-match grep from tripping errexit (pipefail is
+   ## intentionally off); 'sort --unique' drops the overlap when a line matches both arms.
+   ## Tor non-fatal microdesc assertion reference:
+   ## https://gitlab.torproject.org/tpo/core/tor/-/issues/31364
+   {
+      grep --ignore-case --extended-regexp -- "${hard_critical}" "${file}" || true
+      grep --ignore-case --fixed-strings -- "${bug_token}" "${file}" \
+        | grep --ignore-case --invert-match --fixed-strings -- 'Non-fatal assertion' || true
+   } | sort --unique | stcatn
 
-   safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt_br"
+   safe-rm --force -- "${file}"
 }
 
 journal_ignore_patterns_list=()

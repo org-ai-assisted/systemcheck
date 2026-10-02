@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -9,10 +10,10 @@
 check_tor_socks_or_trans_port() {
    local CURL_PROXY_SYSTEMCHECK random_socks_user_name
 
-   if [ ! "$leak_tests" = "true" ]; then
+   if [ ! "${leak_tests}" = "true" ]; then
       local MSG="\
-<p>${FUNCNAME[0]} $1: Skipped, because not using <code>--leak-tests</code> (<code>--show-ip</code>), $status_ok</p>"
-      run_if_verbose emit_message info "$MSG"
+<p>${FUNCNAME[0]} $1: Skipped, because not using <code>--leak-tests</code> (<code>--show-ip</code>), ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
@@ -20,16 +21,16 @@ check_tor_socks_or_trans_port() {
    #CURL=echo
    #TEMP_DIR=/home/user
 
-   if [ "$silent" -ge "3" ]; then
-      true "silent is $silent. Skipping FUNCNAME $1."
+   if [ "${silent}" -ge "3" ]; then
+      true "silent is ${silent}. Skipping FUNCNAME $1."
       return 0
    fi
 
    ## Do not test for stream isolation if Tor detection failed.
    ## This variable may be set to 1, during the first run of this function.
-   if [ "$NOT_USING_TOR" = "1" ]; then
-      local MSG="<p><b>$test_name: Not testing Tor's <code>TransPort</code>, because Tor could not be detected previously.</b></p>"
-      $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+   if [ "${NOT_USING_TOR}" = "1" ]; then
+      local MSG="<p><b>${test_name}: Not testing Tor's <code>TransPort</code>, because Tor could not be detected previously.</b></p>"
+      ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
       return 0
    fi
 
@@ -38,7 +39,7 @@ check_tor_socks_or_trans_port() {
 
    local SOCKS_PORT_SYSTEMCHECK="9110"
    local test_word
-   if [ "$VM" = "machine" ]; then
+   if [ "${VM}" = "machine" ]; then
       SOCKS_PORT_SYSTEMCHECK="9050"
       test_word="Connectivity Test"
    else
@@ -47,80 +48,82 @@ check_tor_socks_or_trans_port() {
    fi
 
    if [ "$1" = "SocksPort" ]; then
-      local test_name="<code>SocksPort</code> $test_word"
-      local checking_msg="$test_name: Testing Tor's <code>SocksPort</code> (SOCKS_PORT_SYSTEMCHECK: <code>$SOCKS_PORT_SYSTEMCHECK</code>)..."
+      local test_name="<code>SocksPort</code> ${test_word}"
+      local checking_msg="${test_name}: Testing Tor's <code>SocksPort</code> (SOCKS_PORT_SYSTEMCHECK: <code>${SOCKS_PORT_SYSTEMCHECK}</code>)..."
       ## https://spec.torproject.org/socks-extensions.html
       random_socks_password="$(random_alpha_numeric 43)"
       CURL_PROXY_SYSTEMCHECK=(
-         '--proxy' "socks5h://$GATEWAY_IP:$SOCKS_PORT_SYSTEMCHECK"
+         '--proxy' "socks5h://${GATEWAY_IP}:${SOCKS_PORT_SYSTEMCHECK}"
          '--proxy-user' "<torS0X>0:systemcheck_${random_socks_password}"
       )
       local CHECK_TOR_OUT_FILE="check_tpo_tor_socksport.html"
       if test -f /run/qubes/this-is-templatevm ; then
          local type=info
          local connection_failed_msg="\
-<p><code>SocksPort</code> Test Result: $status_ok Tor's <code>SocksPort</code> was not reachable.
+<p><code>SocksPort</code> Test Result: ${status_ok} Tor's <code>SocksPort</code> was not reachable.
 <br/>This is expected in default configuration of TemplateVMs in Qubes R4.0 and above, see <a href=${PROJECT_HOMEPAGE}/wiki/Dev/Qubes#Network_in_TemplateVMs>${PROJECT_HOMEPAGE}/wiki/Dev/Qubes#Network_in_TemplateVMs</a>.</p>"
-      elif [ "$VM" = "Whonix-Gateway" ] || [ "$VM" = "Whonix-Workstation" ]; then
+      elif [ "${VM}" = "Whonix-Gateway" ] || [ "${VM}" = "Whonix-Workstation" ]; then
          local connection_failed_msg="\
-<p>$test_name Result: <a href=https://check.torproject.org/api/ip>https://check.torproject.org/api/ip</a> was not reachable.
+<p>${test_name} Result: <a href=https://check.torproject.org/api/ip>https://check.torproject.org/api/ip</a> was not reachable.
 <br/>You could check, if you can reach <a href=https://check.torproject.org/api/ip>https://check.torproject.org/api/ip</a> via the Tor Browser Bundle.</p>"
-      elif [ "$VM" = "machine" ]; then
+      elif [ "${VM}" = "machine" ]; then
          local connection_failed_msg="\
-<p>$test_name Result: <a href=https://check.torproject.org/api/ip>https://check.torproject.org/api/ip</a> was not reachable.
+<p>${test_name} Result: <a href=https://check.torproject.org/api/ip>https://check.torproject.org/api/ip</a> was not reachable.
 <br/>You could check, if you can reach <a href=https://check.torproject.org/api/ip>https://check.torproject.org/api/ip</a> via the Tor Browser Bundle.</p>"
       else
-         local connection_failed_msg="${FUNCNAME[0]}: <p>This is neither Whonix-Gateway nor Whonix-Workstation. Please report this bug to the $PROJECT_NAME developers!</p>"
+         local connection_failed_msg="${FUNCNAME[0]}: <p>This is neither Whonix-Gateway nor Whonix-Workstation. Please report this bug to the ${PROJECT_NAME} developers!</p>"
       fi
    elif [ "$1" = "UpdatesProxy" ]; then
-      local test_name="<code>UpdatesProxy</code> $test_word"
-      local checking_msg="$test_name: Testing Qubes' <code>UpdatesProxy</code>..."
+      local test_name="<code>UpdatesProxy</code> ${test_word}"
+      local checking_msg="${test_name}: Testing Qubes' <code>UpdatesProxy</code>..."
       CURL_PROXY_SYSTEMCHECK=(
-         '--proxy' "$PROXY_SERVER"
+         '--proxy' "${PROXY_SERVER}"
       )
       local CHECK_TOR_OUT_FILE="check_tpo_tor_transport.html"
       local connection_failed_msg="\
-<p><code>UpdatesProxy</code> $test_word: Qubes' <code>UpdatesProxy</code> was not reachable.</p>"
+<p><code>UpdatesProxy</code> ${test_word}: Qubes' <code>UpdatesProxy</code> was not reachable.</p>"
    elif [ "$1" = "TransPort" ]; then
-      local test_name="system default networking $test_word"
-      local checking_msg="$test_name: ${test_name}..."
+      local test_name="system default networking ${test_word}"
+      local checking_msg="${test_name}: ${test_name}..."
       CURL_PROXY_SYSTEMCHECK=()
       local CHECK_TOR_OUT_FILE="check_updates_proxy.html"
 
       if test -f /run/qubes/this-is-templatevm ; then
          local type=info
          local connection_failed_msg="\
-<p>$test_name Test Result: $status_ok Tor's <code>TransPort</code> was not reachable.
+<p>${test_name} Test Result: ${status_ok} Tor's <code>TransPort</code> was not reachable.
 <br/>This is expected in default configuration of TemplateVMs in Qubes R4.0 and above, see <a href=${PROJECT_HOMEPAGE}/wiki/Dev/Qubes#Network_in_TemplateVMs>${PROJECT_HOMEPAGE}/wiki/Dev/Qubes#Network_in_TemplateVMs</a>.</p>"
-      elif [ "$VM" = "Whonix-Gateway" ]; then
+      elif [ "${VM}" = "Whonix-Gateway" ]; then
          local type=info
          local connection_failed_msg="\
-<p>$test_name Test Result: $status_ok Tor's <code>TransPort</code> was not reachable.
+<p>${test_name} Test Result: ${status_ok} Tor's <code>TransPort</code> was not reachable.
 <br/>This is expected on Whonix-Gateway's default configuration.</p>"
 
-      elif [ "$VM" = "machine" ]; then
+      elif [ "${VM}" = "machine" ]; then
          local connection_failed_msg="\
-<p>$test_name Test Result: $status_ok Tor's <code>TransPort</code> was not reachable.</p>"
+<p>${test_name} Test Result: ${status_ok} Tor's <code>TransPort</code> was not reachable.</p>"
 
       else
          local type=error
          local connection_failed_msg="\
-<p>$test_name Test Result: Tor's <code>TransPort</code> was not reachable.
+<p>${test_name} Test Result: Tor's <code>TransPort</code> was not reachable.
 <br/>It is normal for this error to temporarily occur.</p>"
       fi
    else
-      local MSG="<p><code>TransPort</code>/<code>SocksPort</code>/<code>UpdatesProxy</code> Test Error: <b>\<code>$1</code> is neither <code>TransPort</code> nor <code>SocksPort</code> nor <code>UpdatesProxy</code>.</b> Please report this bug to the $PROJECT_NAME developers!</p>"
-      emit_message error "$MSG"
+      local MSG="<p><code>TransPort</code>/<code>SocksPort</code>/<code>UpdatesProxy</code> Test Error: <b>\<code>$1</code> is neither <code>TransPort</code> nor <code>SocksPort</code> nor <code>UpdatesProxy</code>.</b> Please report this bug to the ${PROJECT_NAME} developers!</p>"
+      emit_message error "${MSG}"
       EXIT_CODE="1"
       return 0
    fi
 
-   local MSG="$checking_msg"
-   $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+   local MSG="${checking_msg}"
+   ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
 
-   $CURL \
+   ## CURL_VERBOSE and CURL_TPO_PIN_CERT are flags or empty; unquoted so an empty value adds no argument.
+   # shellcheck disable=SC2086
+   ${CURL} \
       --fail \
-      $CURL_VERBOSE \
+      ${CURL_VERBOSE} \
       "${CURL_PROXY_SYSTEMCHECK[@]}" \
       --tlsv1.3 \
       --proto =https \
@@ -129,31 +132,31 @@ check_tor_socks_or_trans_port() {
       --retry-delay 3 \
       --retry-max-time 120 \
       --max-time 180 \
-      $CURL_TPO_PIN_CERT \
-      --output "$TEMP_DIR/$CHECK_TOR_OUT_FILE" \
+      ${CURL_TPO_PIN_CERT} \
+      --output "${TEMP_DIR}/${CHECK_TOR_OUT_FILE}" \
       -- \
-      "$LINK" \
+      "${LINK}" \
       &
 
    lastpid="$!"
-   wait -- "$lastpid" || { check_result_curl_exit_code="$?" ; true; };
+   wait -- "${lastpid}" || { check_result_curl_exit_code="$?" ; true; };
 
-   if [ ! "$check_result_curl_exit_code" = "0" ]; then
+   if [ ! "${check_result_curl_exit_code}" = "0" ]; then
       local curl_status_message
-      curl_status_message="$(/usr/libexec/helper-scripts/curl_exit_codes "$check_result_curl_exit_code")"
+      curl_status_message="$(/usr/libexec/helper-scripts/curl_exit_codes "${check_result_curl_exit_code}")"
 
-      local MSG="$connection_failed_msg
-(curl exit code: $curl_status_message)</p>"
-      if [ "$type" = "" ]; then
+      local MSG="${connection_failed_msg}
+(curl exit code: ${curl_status_message})</p>"
+      if [ "${type}" = "" ]; then
          type=error
          EXIT_CODE="1"
       fi
-      emit_message "$type" "$MSG"
+      emit_message "${type}" "${MSG}"
       return 0
    fi
 
    local bug_maybe_msg
-   bug_maybe_msg="Could be a $PROJECT_NAME bug, check.torproject.org change, bug or compromise. Please report this bug to the $PROJECT_NAME developers!"
+   bug_maybe_msg="Could be a ${PROJECT_NAME} bug, check.torproject.org change, bug or compromise. Please report this bug to the ${PROJECT_NAME} developers!"
 
    ## grep exit codes:
    ## 0 found
@@ -166,7 +169,7 @@ check_tor_socks_or_trans_port() {
    local max_string_length
    max_string_length=68
 
-   check_tor_out_file_content_raw="$(cat -- "$TEMP_DIR/$CHECK_TOR_OUT_FILE")"
+   check_tor_out_file_content_raw="$(cat -- "${TEMP_DIR}/${CHECK_TOR_OUT_FILE}")"
    ## example check_tor_out_file_content_raw - in practice:
    # {"IsTor":true,"IP":"5.255.99.5"}
    ## example check_tor_out_file_content_raw - in theory:
@@ -175,16 +178,16 @@ check_tor_socks_or_trans_port() {
    #check_tor_out_file_content_raw='{"IsTor":true,"IP":"0000:0000:0000:0000:0000:ffff:192.168.100.228"}'
 
    local check_tor_out_file_content_sanitized
-   check_tor_out_file_content_sanitized="$(/usr/bin/sanitize-string -- "$max_string_length" "$check_tor_out_file_content_raw")"
+   check_tor_out_file_content_sanitized="$(/usr/bin/sanitize-string -- "${max_string_length}" "${check_tor_out_file_content_raw}")"
 
-   if [ "$verbose" -ge "2" ]; then
+   if [ "${verbose}" -ge "2" ]; then
       local MSG="\
 <p>${FUNCNAME[0]} $1: <code>check_tor_out_file_content_sanitized:</code>
-<blockquote>$check_tor_out_file_content_sanitized</blockquote></p>"
-      emit_message info "$MSG"
+<blockquote>${check_tor_out_file_content_sanitized}</blockquote></p>"
+      emit_message info "${MSG}"
    fi
 
-   tor_detected_raw="$(printf "%s" "$check_tor_out_file_content_sanitized" | python3 -c "import sys, json; print(json.load(sys.stdin)['IsTor'])")" || { tor_detected_raw="$?" ; true; };
+   tor_detected_raw="$(printf "%s" "${check_tor_out_file_content_sanitized}" | /usr/libexec/systemcheck/json-field-get IsTor)" || { tor_detected_raw="$?" ; true; };
    ## example tor_detected_raw:
    # True
    ## example tor_detected_raw:
@@ -196,13 +199,13 @@ check_tor_socks_or_trans_port() {
 
    max_string_length="5"
    local tor_detected_sanitized
-   tor_detected_sanitized="$(/usr/bin/sanitize-string -- "$max_string_length" "$tor_detected_raw")"
+   tor_detected_sanitized="$(/usr/bin/sanitize-string -- "${max_string_length}" "${tor_detected_raw}")"
 
-   if [ ! "$tor_detected_sanitized" = "False" ]; then
-      if [ ! "$tor_detected_sanitized" = "True" ]; then
+   if [ ! "${tor_detected_sanitized}" = "False" ]; then
+      if [ ! "${tor_detected_sanitized}" = "True" ]; then
          ## an error occurred
-         local MSG="<p>$test_name Result: tor_detected_sanitized is neither True nor False. $bug_maybe_msg</p>"
-         emit_message error "$MSG"
+         local MSG="<p>${test_name} Result: tor_detected_sanitized is neither True nor False. ${bug_maybe_msg}</p>"
+         emit_message error "${MSG}"
          EXIT_CODE="1"
          return 0
       fi
@@ -210,15 +213,15 @@ check_tor_socks_or_trans_port() {
 
    local json_ip_exit_code ip_raw
    json_ip_exit_code="0"
-   ip_raw="$(printf "%s" "$check_tor_out_file_content_sanitized" | python3 -c "import sys, json; print(json.load(sys.stdin)['IP'])")" || { json_ip_exit_code="$?" ; true; };
+   ip_raw="$(printf "%s" "${check_tor_out_file_content_sanitized}" | /usr/libexec/systemcheck/json-field-get IP)" || { json_ip_exit_code="$?" ; true; };
 
    ## example ip_raw:
    ## 94.242.204.74
 
-   if [ ! "$json_ip_exit_code" = "0" ]; then
+   if [ ! "${json_ip_exit_code}" = "0" ]; then
       ## an error occurred
-      local MSG="<p>$test_name Result: <b>json_ip_exit_code: $json_ip_exit_code.</b> $bug_maybe_msg</p>"
-      emit_message error "$MSG"
+      local MSG="<p>${test_name} Result: <b>json_ip_exit_code: ${json_ip_exit_code}.</b> ${bug_maybe_msg}</p>"
+      emit_message error "${MSG}"
       EXIT_CODE="1"
       return 0
    fi
@@ -233,48 +236,48 @@ check_tor_socks_or_trans_port() {
    local actual_string_length
    actual_string_length="${#ip_raw}"
 
-   if [ "$actual_string_length" -gt "$max_string_length" ]; then
-      local MSG="<p><b>$1 Test: Excessive string length of ip_raw variable</b> (<code>$actual_string_length</code> characters).</p>"
-      emit_message warning "$MSG"
+   if [ "${actual_string_length}" -gt "${max_string_length}" ]; then
+      local MSG="<p><b>$1 Test: Excessive string length of ip_raw variable</b> (<code>${actual_string_length}</code> characters).</p>"
+      emit_message warning "${MSG}"
       EXIT_CODE="1"
       return 0
    fi
 
    local ip_sanitized
-   ip_sanitized="$(/usr/bin/sanitize-string -- "$max_string_length" "$ip_raw")"
+   ip_sanitized="$(/usr/bin/sanitize-string -- "${max_string_length}" "${ip_raw}")"
 
    ## Store IP for later use in memory.
    if [ "$1" = "SocksPort" ]; then
-      IP_SOCKS_PORT="$ip_sanitized"
+      IP_SOCKS_PORT="${ip_sanitized}"
    elif [ "$1" = "UpdatesProxy" ]; then
-      IP_UPDATES_PROXY="$ip_sanitized"
+      IP_UPDATES_PROXY="${ip_sanitized}"
    elif [ "$1" = "TransPort" ]; then
-      IP_TRANS_PORT="$ip_sanitized"
+      IP_TRANS_PORT="${ip_sanitized}"
    fi
 
    local ip_show_maybe_text
-   if [ "$show_ip" = "true" ]; then
-      ip_show_maybe_text="<br/>IP: <code>$ip_sanitized</code>"
+   if [ "${show_ip}" = "true" ]; then
+      ip_show_maybe_text="<br/>IP: <code>${ip_sanitized}</code>"
    else
       ip_show_maybe_text=""
    fi
 
    ## Check if connected to Tor or not,
    ## and choose which message to show.
-   if [ "$tor_detected_sanitized" = "True" ]; then
+   if [ "${tor_detected_sanitized}" = "True" ]; then
       ## Tor detected.
 
       if [ "$1" = "SocksPort" ]; then
-         CHECK_TOR_RESULT_SOCKS_PORT="$tor_detected_sanitized"
+         CHECK_TOR_RESULT_SOCKS_PORT="${tor_detected_sanitized}"
       elif [ "$1" = "UpdatesProxy" ]; then
-         CHECK_TOR_RESULT_UPDATES_PROXY="$tor_detected_sanitized"
+         CHECK_TOR_RESULT_UPDATES_PROXY="${tor_detected_sanitized}"
       elif [ "$1" = "TransPort" ]; then
-         CHECK_TOR_RESULT_TRANS_PORT="$tor_detected_sanitized"
+         CHECK_TOR_RESULT_TRANS_PORT="${tor_detected_sanitized}"
       fi
 
-      local MSG="<p>$test_name: Connected to Tor. $ip_show_maybe_text</p>"
-      if [ "$silent" -le "0" ]; then
-         emit_message info "$MSG"
+      local MSG="<p>${test_name}: Connected to Tor. ${ip_show_maybe_text}</p>"
+      if [ "${silent}" -le "0" ]; then
+         emit_message info "${MSG}"
       fi
       return 0
    fi
@@ -285,14 +288,14 @@ check_tor_socks_or_trans_port() {
    exornator_msg="You could try to find out if this IP is/was a Tor exit node using a search engine or ExoneraTor:
 <br/><a href=https://metrics.torproject.org/exonerator.html>https://metrics.torproject.org/exonerator.html</a>"
 
-   if [ "$VM" = "machine" ]; then
+   if [ "${VM}" = "machine" ]; then
       local not_using_msg_tor="\
-<p>$test_name Result: $status_ok $ip_show_maybe_text</p>"
+<p>${test_name} Result: ${status_ok} ${ip_show_maybe_text}</p>"
    else
       local not_using_msg_tor="\
-<p>$test_name Result:
+<p>${test_name} Result:
 <br/><b>Looks like you are not connected through Tor!</b>
-$ip_show_maybe_text</p>
+${ip_show_maybe_text}</p>
 
 <p>systemcheck aborted!</p>
 
@@ -302,29 +305,29 @@ $ip_show_maybe_text</p>
    fi
 
    local type
-   if [ "$VM" = "machine" ]; then
+   if [ "${VM}" = "machine" ]; then
       type=info
    else
       type=error
       EXIT_CODE="1"
       if [ "$1" = "TransPort" ]; then
-         local not_using_msg_tor="$not_using_msg_tor
+         local not_using_msg_tor="${not_using_msg_tor}
 
 <p>Other in this case common reasons:
 <br/>- You added a VPN.
 <br/>- You added a transproxy.</p>"
       fi
 
-      not_using_msg_tor="$not_using_msg_tor
+      not_using_msg_tor="${not_using_msg_tor}
 
-<p>$exornator_msg</p>"
+<p>${exornator_msg}</p>"
    fi
 
-   local MSG="$not_using_msg_tor"
+   local MSG="${not_using_msg_tor}"
 
-   emit_message "$type" "$MSG"
+   emit_message "${type}" "${MSG}"
 
-   if [ "$VM" = "machine" ]; then
+   if [ "${VM}" = "machine" ]; then
       true
    else
       EXIT_CODE="1"
@@ -335,7 +338,7 @@ $ip_show_maybe_text</p>
 }
 
 check_qubes_updates_proxy() {
-   if [ ! "$qubes_detected" = "true" ]; then
+   if [ ! "${qubes_detected}" = "true" ]; then
       return 0
    fi
 

@@ -147,8 +147,16 @@ check_tor_socks_or_trans_port() {
 
       local MSG="${connection_failed_msg}
 (curl exit code: ${curl_status_message})</p>"
+      ## A curl failure fails the run UNLESS the branch classified it INFO -- an
+      ## unreachable port that is EXPECTED there (Whonix-Gateway's absent TransPort,
+      ## a Qubes TemplateVM). Default an unclassified failure to error, then set
+      ## EXIT_CODE for ANY error-typed failure, so a branch that PRE-SETS type=error
+      ## (TransPort on a Whonix-Workstation / unknown VM) also fails the run -- a
+      ## positive control must never emit a red error yet exit 0 (false green).
       if [ "${type}" = "" ]; then
          type=error
+      fi
+      if [ "${type}" = "error" ]; then
          EXIT_CODE="1"
       fi
       emit_message "${type}" "${MSG}"

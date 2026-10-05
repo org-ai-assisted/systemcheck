@@ -21,6 +21,12 @@ if ! source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.
    exit 1
 fi
 
+## provides is_whole_number (used by the top-level progress helpers below) and br_add.
+## Sourced at top level so the source-able progress helpers are self-contained when
+## sourced, not only inside systemcheck_main.
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
+
 ## If anyone adds a VPN or something similar to Whonix-Workstation
 ## (i.e. connection scheme: Whonix-Workstation -> Tor -> VPN), he would wonder
 ## why it is not detected.
@@ -107,12 +113,6 @@ systemcheck_main() {
    bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
    # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/has.bsh
    source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
-
-   ## provides: is_whole_number
-   ## provides: br_add
-   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
-   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
-   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
 
    ## systemcheck sourced fragments. These are listed explicitly so they can be
    ## sourced by shellcheck. To update, open a terminal in

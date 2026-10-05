@@ -65,7 +65,7 @@ check_tirdad_module() {
    fi
 
    if grep --ignore-case --fixed-strings -- "tirdad" >/dev/null < <(lsmod); then
-      emit_status_line info "${status_text}" "${link_tirdad}" green "Enabled"
+      run_if_verbose emit_status_line info "${status_text}" "${link_tirdad}" green "Enabled"
    else
       if [ "${only_if_verbose}" = "true" ] && [ "${verbose}" -lt "1" ]; then
          true "Skipping tirdad warning: benign case and not in verbose mode."

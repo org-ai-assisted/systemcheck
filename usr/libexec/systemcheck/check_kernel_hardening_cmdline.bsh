@@ -108,7 +108,7 @@ check_kernel_hardening_cmdline() {
    done
 
    if [ "${#missing_tokens[@]}" -eq 0 ]; then
-      emit_status_line info "${status_text}" "" green "Present"
+      run_if_verbose emit_status_line info "${status_text}" "" green "Present"
    else
       local missing_joined
       missing_joined="$(IFS=' '; printf '%s' "${missing_tokens[*]}")"

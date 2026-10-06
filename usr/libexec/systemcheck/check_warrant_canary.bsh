@@ -22,7 +22,7 @@ check_warrant_canary() {
 
    ## same conditions as in /usr/libexec/systemcheck/canary
 
-   source /usr/libexec/systemcheck/canary-run-or-not
+   source "${SYSTEMCHECK_REPO:-}/usr/libexec/systemcheck/canary-run-or-not"
    if [ "${canary_run}" = "false" ]; then
       local MSG="\
 <p>${warrant_canary_check_link}: Disabled in settings. Doing nothing. Skipping.</p>"

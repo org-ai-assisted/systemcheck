@@ -227,7 +227,9 @@ check_critical_logs() {
    ## sanitize to avoid that either forks per line -- an attacker-spammable stall -- or needs a
    ## line cap, which an attacker can use to push a real catastrophe past the cut). Translating
    ## '<>&' to '_' neutralizes EVERY line in one pass: no deletion, no fork, no cap, so no
-   ## catastrophe can be hidden or starved.
+   ## catastrophe can be hidden or starved here. (A pathological multi-MiB forged flood can
+   ## still hit the GUI message dispatcher's own volume limit downstream -- volume bounding,
+   ## if ever wanted, belongs there, not a cap here that an attacker could aim a real line past.)
    tr '<>&' '___' < "${matched}" > "${matched}.san"
    mv -- "${matched}.san" "${matched}"
    br_add_to_file "${matched}"

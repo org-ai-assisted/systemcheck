@@ -9,14 +9,12 @@
 ## bare `sanitize-string` helper-scripts tool (check_dpkg, check_hostname,
 ## check_operating_system, ...); helper-scripts: true checks that repo out so
 ## the tool resolves in the CI container. The default apt stack (python3
-## python3-pytest python3-hypothesis) already covers the rest.
+## python3-pytest python3-hypothesis) already covers the suite.
 ##
-## bubblewrap: the scenario harness's run_check_scenario_isolated (and the
-## log-checker config/temp-dir regression tests) neutralize absolute-path guards
-## (Qubes marker-vm, the fixed /var/cache temp dir) with an unprivileged bwrap
-## tmpfs overlay. Without bwrap those tests SkipTest -- a silent-green gap on the
-## trixie-slim container, which does not ship it. The job already runs with
-## SYS_ADMIN + apparmor=unconfined, so the namespace is available.
+## NOT bubblewrap: the bwrap-isolated scenario tests cannot run on the GHA
+## runner regardless (the non-root build user's unshare(CLONE_NEWUSER) is
+## blocked by the kernel's apparmor_restrict_unprivileged_userns LSM, which no
+## container option can relax), so they SkipTest -- installing bwrap would be
+## dead weight. They run locally / in the sandbox, which carries the coverage.
 dist-ai-tests:
   helper-scripts: true
-  apt-packages: "bubblewrap"

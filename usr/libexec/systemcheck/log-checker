@@ -185,7 +185,7 @@ check_service_logs() {
 }
 
 check_critical_logs() {
-   local hard_critical raw matched line
+   local hard_critical raw matched line sanitized_count
 
    ## Raw kernel-transport stream written by check_service_logs (journalctl --dmesg via the
    ## read-journalctl-kernel-logs-* leap actions). _TRANSPORT=kernel guarantees each line
@@ -207,26 +207,35 @@ check_critical_logs() {
 
    ## Kernel catastrophes that are ALWAYS critical ("so bad they must be shown"):
    ##   hard_critical : Bad RAM / CPU-stall / nouveau-killed.
-   ##   BUG           : a kernel BUG:/oops/BUG_ON. Word-boundaried + case-SENSITIVE uppercase
-   ##                   so it matches BOTH 'BUG:' and 'kernel BUG at <file>:<line>!' (the
-   ##                   BUG() macro form, no colon) while never matching 'debug'/'DEBUG'.
+   ##   BUG(:| at )   : a kernel BUG:/oops or the BUG()/BUG_ON() form 'kernel BUG at
+   ##                   <file>:<line>!'. Case-SENSITIVE uppercase with a leading non-letter,
+   ##                   so it matches those two real forms but NOT 'debug'/'DEBUG' nor a bare
+   ##                   'BUG' token an unprivileged process can plant in a kernel-echoed path
+   ##                   (e.g. an apparmor-denied 'name="/tmp/BUG"').
    ## Grep from the RAW stream FIRST, so an unrelated line cannot be eaten before it matches.
    ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the
-   ## overlap when a line matches both arms. The matched set is normally a handful of lines;
-   ## the per-line sanitize below is O(matches), bounded in practice by how many genuine
-   ## kernel catastrophes a boot can hold.
+   ## overlap when a line matches both arms.
    hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
    matched="${TMPDIR}/journalctl_kernel_critical.txt"
    {
       grep --ignore-case --extended-regexp -- "${hard_critical}" "${raw}" || true
-      grep --extended-regexp -- '(^|[^A-Za-z])BUG($|[^A-Za-z])' "${raw}" || true
+      grep --extended-regexp -- '(^|[^A-Za-z])BUG(:| at )' "${raw}" || true
    } | sort --unique > "${matched}"
 
    ## Neutralize HTML in each shown line for the GUI, then add '<br />' line breaks.
    ## sanitize-string parses its whole input as ONE HTML blob, so an unclosed '<' in one
    ## matched line would delete every line after it (one catastrophe hiding another). Running
    ## it PER LINE confines any such deletion to that line's own tail -- every match survives.
+   ## Cap the loop so attacker-influenceable kernel text (crafted BUG: paths spammed into the
+   ## journal) cannot turn the per-line fork into a long stall: 200 distinct critical lines
+   ## already means a destroyed boot, so truncating past that loses no useful signal.
+   sanitized_count=0
    while IFS= read -r line; do
+      sanitized_count=$(( sanitized_count + 1 ))
+      if [ "${sanitized_count}" -gt 200 ]; then
+         printf '%s\n' '[further critical kernel log lines truncated]'
+         break
+      fi
       printf '%s' "${line}" | sanitize-string -- nolimit
       printf '%s\n' ''
    done < "${matched}" > "${matched}.san"

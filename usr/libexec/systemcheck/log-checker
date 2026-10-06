@@ -103,22 +103,6 @@ check_service_logs() {
     return 1
   fi
 
-  ## Kernel-transport journal, captured SEPARATELY for the always-shown critical tier
-  ## (check_critical_logs reads the '_br' file this produces). journalctl --dmesg selects
-  ## _TRANSPORT=kernel messages only, so a userspace process cannot forge a kernel line
-  ## into the critical stream -- the origin guarantee is structural, not a substring match.
-  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
-  touch -- "${TMPDIR}/journalctl_kernel.txt"
-  if [ "${check_boot}" = 'this_boot' ]; then
-    leaprun read-journalctl-kernel-logs-this-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
-  else
-    leaprun read-journalctl-kernel-logs-last-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
-  fi
-  sanitize-string -- nolimit < "${TMPDIR}/journalctl_kernel.txt" > "${TMPDIR}/journalctl_kernel.txt.tmp"
-  mv -- "${TMPDIR}/journalctl_kernel.txt.tmp" "${TMPDIR}/journalctl_kernel.txt"
-  br_add_to_file "${TMPDIR}/journalctl_kernel.txt"
-  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
-
   ## 'BUG' is word-boundary anchored (like 'fault' below) so it matches real
   ## kernel reports ('BUG:', 'kernel BUG at') but NOT the substring in words like
   ## 'debugging'.
@@ -183,35 +167,62 @@ check_service_logs() {
   safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt"
 
   stcatn "${TMPDIR}/journalctl_match_filtered.txt_br" | sort --unique
+  safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt_br"
+
+  ## Kernel-transport journal (journalctl --dmesg, _TRANSPORT=kernel only), captured RAW
+  ## for the always-shown critical tier: check_critical_logs reads this file. Done LAST so
+  ## a failure here cannot suppress the service-log output already emitted above. Left
+  ## UN-sanitized on purpose -- check_critical_logs greps it before sanitizing, so a '<' in
+  ## one line cannot swallow a later catastrophe line (sanitize-string parses its whole
+  ## input as one HTML blob).
+  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
+  touch -- "${TMPDIR}/journalctl_kernel.txt"
+  if [ "${check_boot}" = 'this_boot' ]; then
+    leaprun read-journalctl-kernel-logs-this-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+  else
+    leaprun read-journalctl-kernel-logs-last-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+  fi
 }
 
 check_critical_logs() {
-   local hard_critical file
+   local hard_critical raw matched
 
-   ## Kernel-transport-only stream written by check_service_logs (journalctl --dmesg via
-   ## the read-journalctl-kernel-logs-* leap actions). Every line here is _TRANSPORT=kernel,
-   ## which userspace cannot forge, so the kernel origin is guaranteed STRUCTURALLY -- this
-   ## function only has to match the catastrophe tokens, no identifier substring.
-   file="${TMPDIR}/journalctl_kernel.txt_br"
-   if ! test -e "${file}"; then
+   ## Raw kernel-transport stream written by check_service_logs (journalctl --dmesg via the
+   ## read-journalctl-kernel-logs-* leap actions). _TRANSPORT=kernel guarantees each line
+   ## came from the KERNEL, so no userspace process can HIDE a real kernel BUG from this
+   ## tier. It does NOT make the matched text fully trusted: the kernel echoes some
+   ## unprivileged-controlled strings (a process comm in a segfault/oom line), so a crafted
+   ## comm containing ' BUG:' can still raise a FALSE-positive critical -- a forced false
+   ## alarm, not a hidden catastrophe. Anchoring the token to the kernel message start would
+   ## narrow that and is a possible follow-up.
+   raw="${TMPDIR}/journalctl_kernel.txt"
+   if ! test -e "${raw}"; then
       return 0
    fi
 
    ## Kernel catastrophes that are ALWAYS critical ("so bad they must be shown"):
    ##   hard_critical : Bad RAM / CPU-stall / nouveau-killed.
    ##   ' BUG:'       : a kernel BUG:/oops (the leading space avoids 'debug:').
-   ## Tor's userspace 'Bug:' lines (tor_bug_occurred_() non-fatal asserts,
-   ## tor_assertion_failed_() aborts, log_backtrace() frames) are NOT in this kernel stream,
-   ## so they are never force-shown here; Tor health is a service-log concern.
-   ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the
-   ## overlap when a line matches both arms.
+   ## Grep the catastrophe lines from the RAW stream FIRST, THEN sanitize ONLY the matches:
+   ## sanitize-string parses its whole input as one HTML blob, so a '<' in an unrelated
+   ## kernel line (a register/stack dump) would otherwise swallow a later catastrophe line
+   ## and HIDE it. '|| true' keeps a no-match grep from tripping errexit; 'sort --unique'
+   ## drops the overlap when a line matches both arms.
    hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
+   matched="${TMPDIR}/journalctl_kernel_critical.txt"
    {
-      grep --ignore-case --extended-regexp -- "${hard_critical}" "${file}" || true
-      grep --ignore-case --fixed-strings -- ' BUG:' "${file}" || true
-   } | sort --unique | stcatn
+      grep --ignore-case --extended-regexp -- "${hard_critical}" "${raw}" || true
+      grep --ignore-case --fixed-strings -- ' BUG:' "${raw}" || true
+   } | sort --unique > "${matched}"
 
-   safe-rm --force -- "${file}"
+   ## Neutralize HTML in the shown (catastrophe) lines, then add '<br />' line breaks,
+   ## exactly as check_service_logs does for the service-log tier (GUI rendering).
+   sanitize-string -- nolimit < "${matched}" > "${matched}.tmp"
+   mv -- "${matched}.tmp" "${matched}"
+   br_add_to_file "${matched}"
+   stcatn "${matched}_br"
+
+   safe-rm --force -- "${raw}" "${matched}" "${matched}_br"
 }
 
 main() {

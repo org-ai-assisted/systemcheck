@@ -180,15 +180,18 @@ check_critical_logs() {
    ## Kernel-catastrophe tokens that are ALWAYS critical ("so bad they must be shown").
    hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
    ## ' BUG:' (a kernel BUG:/oops; the leading space avoids 'debug:') is force-shown ONLY on
-   ## KERNEL-origin lines, matched by the journald short-format syslog identifier ' kernel:'
-   ## (parse_cmd's readers run 'journalctl --output short', which prints '<host> kernel:'
-   ## for kernel messages). Tor's userspace 'Bug:' lines -- tor_bug_occurred_() non-fatal
-   ## asserts, tor_assertion_failed_() aborts, and log_backtrace() frames alike -- are NOT
-   ## kernel catastrophes; they are surfaced by the service-log check, not this always-shown
-   ## tier. Tor logs them mixed-case 'Bug:' with no stable backtrace signature, so there is
-   ## no robust content filter -- anchoring to the kernel identifier is both correct and
-   ## tamper-resistant: no process-controlled journal text (a comm/name on a kernel line)
-   ## can add or hide a critical line.
+   ## lines that also carry the ' kernel:' syslog identifier (parse_cmd's readers run
+   ## 'journalctl --output short', which prints '<host> kernel:' for kernel messages). Tor's
+   ## userspace 'Bug:' lines -- tor_bug_occurred_() non-fatal asserts, tor_assertion_failed_()
+   ## aborts, and log_backtrace() frames alike -- are NOT kernel catastrophes; Tor logs them
+   ## mixed-case 'Bug:' with no stable backtrace signature, so there is no robust content
+   ## filter. They are surfaced by the service-log check, not this always-shown tier.
+   ## This cannot HIDE a real kernel BUG: a genuine kernel line always carries ' kernel:'.
+   ## SCOPE: ' kernel:' is a substring test, not a positional field anchor, so a local
+   ## process that logs 'kernel:' next to 'BUG:' in its OWN message can raise a FALSE-positive
+   ## critical -- the same forgeability class as the prior ' BUG:'-anywhere match, and
+   ## strictly rarer. A capture-time _TRANSPORT=kernel / --dmesg anchor in parse_cmd is the
+   ## robust follow-up.
    kernel_ident=' kernel:'
 
    ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the

@@ -3,31 +3,43 @@
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
 
-## style-ok: no-strict
-## errexit and nounset ARE set below. pipefail is intentionally NOT set: the
-## journal grep pipelines legitimately exit non-zero on no-match and must not
-## abort. The gate's R-010 strict-triple does not fit this script.
-##
-## TODO: Can we adjust this script so that we can use a standard strict
-## preamble?
-
 ## NOTE: Runs as user `systemcheck`. Can run privleap actions
 ## `read-journalctl-logs-this-boot`,
 ## `read-journalctl-logs-last-boot`, and
 ## `read-journalctl-logs-whonix-firewall`.
 
-#set -x
+## provides was_executed. Source-able: functions are defined on source; the
+## strict-mode and execution blocks auto-run ONLY when executed, so a unit test
+## can source this file and call its functions without running it or inheriting
+## strict-mode.
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
+if ! declare -F was_executed >/dev/null; then
+   printf '%s\n' "$0: ERROR: cannot source check_runtime.bsh!" >&2
+   exit 1
+fi
 
-set -o errexit
-set -o nounset
-set -o errtrace
-#set -o pipefail
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
 
-## Redirect all stderr to stdout.
-exec 2>&1
+if was_executed "${BASH_SOURCE[0]}"; then
+   set -o errexit
+   set -o nounset
+   set -o pipefail
+   set -o errtrace
+   shopt -s inherit_errexit
+   shopt -s shift_verbose
+   export LC_ALL=C
+   ## Redirect all stderr to stdout.
+   exec 2>&1
+fi
 
-bash -n /usr/libexec/helper-scripts/strings.bsh
-source /usr/libexec/helper-scripts/strings.bsh
+## pipefail is on. A journal 'grep' legitimately exits non-zero when it matches
+## nothing (e.g. a clean system), which must NOT abort the check, so each grep
+## producer is wrapped in a brace group '{ grep ... || true; } | tee ...' (a
+## group, not a subshell). Other producers are NOT masked: a leaprun journal-read
+## failure or an stcatn format failure is a real error that SHOULD abort (the
+## caller, check_services.bsh, already tolerates a non-zero log-checker).
 
 ## Copied from /usr/libexec/systemcheck/preparation.bsh.
 source_config() {
@@ -80,9 +92,8 @@ check_service_logs() {
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
   touch -- "${TMPDIR}/journalctl_output.txt"
 
-  ## leaprun's exit status is intentionally ignored: pipefail is off, so a
-  ## non-zero leaprun mid-pipeline does not abort under errexit (the pipeline
-  ## takes tee's status). No subshell / '|| true' needed.
+  ## A failed journal read aborts (pipefail); leaprun's stderr is folded into the
+  ## captured output (2>&1) so it is inspected too.
   if [ "${check_boot}" = 'this_boot' ]; then
     leaprun read-journalctl-logs-this-boot 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
   elif [ "${check_boot}" = 'last_boot' ]; then
@@ -101,7 +112,7 @@ check_service_logs() {
     journal_ignore_patterns_list+=( "virtualbox" )
   fi
 
-  grep --extended-regexp --ignore-case "${journal_search_pattern_list}" -- "${TMPDIR}/journalctl_output.txt" \
+  { grep --extended-regexp --ignore-case "${journal_search_pattern_list}" -- "${TMPDIR}/journalctl_output.txt" || true; } \
     | tee -- "${TMPDIR}/journalctl_matched.txt" >/dev/null
 
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
@@ -117,7 +128,7 @@ check_service_logs() {
     for journal_ignore_fixed_item in "${journal_ignore_fixed_list[@]}"; do
       grep_ignore_fixed_items_command+=( -e "${journal_ignore_fixed_item}" )
     done
-    "${grep_ignore_fixed_items_command[@]}" -- "${TMPDIR}/journalctl_matched.txt" \
+    { "${grep_ignore_fixed_items_command[@]}" -- "${TMPDIR}/journalctl_matched.txt" || true; } \
       | tee -- "${TMPDIR}/journalctl_fixed_filtered.txt" >/dev/null
   else
     cp -- "${TMPDIR}/journalctl_matched.txt" "${TMPDIR}/journalctl_fixed_filtered.txt"
@@ -134,7 +145,7 @@ check_service_logs() {
     for journal_ignore_pattern_item in "${journal_ignore_patterns_list[@]}"; do
       grep_ignore_patterns_command+=( -e "${journal_ignore_pattern_item}" )
     done
-    "${grep_ignore_patterns_command[@]}" -- "${TMPDIR}/journalctl_fixed_filtered.txt" \
+    { "${grep_ignore_patterns_command[@]}" -- "${TMPDIR}/journalctl_fixed_filtered.txt" || true; } \
       | tee -- "${TMPDIR}/journalctl_match_filtered.txt" >/dev/null
   else
     cp -- "${TMPDIR}/journalctl_fixed_filtered.txt" "${TMPDIR}/journalctl_match_filtered.txt"
@@ -144,9 +155,9 @@ check_service_logs() {
   ## br_add_to_file bakes in '<br />' tags. This output is later rendered in
   ## the GUI; stcatn (applied afterwards) strips ANSI, not HTML.
   ##
-  ## Not piping to 'sponge' because that would cause errors in
-  ## sanitize-string to not terminate the script, because pipefail is not
-  ## enabled.
+  ## Redirect form (not a 'sponge' pipe) so a sanitize-string failure DOES abort
+  ## the script here (it is a single command under errexit), rather than being a
+  ## masked producer like the tolerant journal greps above.
   sanitize-string -- nolimit < "${TMPDIR}/journalctl_match_filtered.txt" > "${TMPDIR}/journalctl_match_filtered.txt.tmp"
   mv -- "${TMPDIR}/journalctl_match_filtered.txt.tmp" "${TMPDIR}/journalctl_match_filtered.txt"
 
@@ -191,17 +202,24 @@ check_critical_logs() {
    safe-rm --force -- "${file}"
 }
 
-journal_ignore_patterns_list=()
-journal_ignore_fixed_list=()
-source_config
-prep_temp_dir
+main() {
+  local check_mode
+  journal_ignore_patterns_list=()
+  journal_ignore_fixed_list=()
+  source_config
+  prep_temp_dir
 
-check_mode="${1:-}"
-if [ "${check_mode}" = 'check_service_logs' ]; then
-  check_service_logs "${2:-}"
-elif [ "${check_mode}" = 'check_critical_logs' ]; then
-  check_critical_logs
-else
-  printf '%s\n' "$0: ERROR: Unrecognized mode '${check_mode}' specified!" >&2
-  exit 1
+  check_mode="${1:-}"
+  if [ "${check_mode}" = 'check_service_logs' ]; then
+    check_service_logs "${2:-}"
+  elif [ "${check_mode}" = 'check_critical_logs' ]; then
+    check_critical_logs
+  else
+    printf '%s\n' "$0: ERROR: Unrecognized mode '${check_mode}' specified!" >&2
+    return 1
+  fi
+}
+
+if was_executed "${BASH_SOURCE[0]}"; then
+  main "$@"
 fi

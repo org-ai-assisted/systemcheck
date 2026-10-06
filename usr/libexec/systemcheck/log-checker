@@ -179,24 +179,23 @@ check_critical_logs() {
 
    ## Kernel-catastrophe tokens that are ALWAYS critical ("so bad they must be shown").
    hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
-   ## ' BUG:' catches a kernel BUG:/oops but ALSO over-matches a userspace "Bug:"
-   ## (case-insensitive); the leading space avoids 'debug:'.
+   ## ' BUG:' catches a kernel BUG:/oops. Matched case-SENSITIVELY on purpose: a kernel
+   ## oops logs uppercase 'BUG:', while Tor's userspace soft-assert path logs mixed-case
+   ## 'Bug:' -- its tor_bug_occurred_() "Non-fatal assertion failed." line AND every
+   ## log_backtrace() 'tor_log(): Bug:' record it then emits. A soft-assert declared
+   ## itself survivable, so the WHOLE block belongs in the ordinary warning tier, not
+   ## force-shown as critical; case-sensitivity demotes all of it in one step. The leading
+   ## space still avoids 'debug:'.
    bug_token=' BUG:'
 
-   ## Critical = every hard_critical line, PLUS any ' BUG:' line that is NOT a userspace
-   ## self-declared "Non-fatal assertion" (Tor's tor_bug_occurred_() soft-assert path,
-   ## incl. its microdesc "Bug:"): a soft-assert declared itself survivable and kept
-   ## running, so it belongs in the ordinary warning tier (still emitted under --verbose,
-   ## --journal-ignore-able there), NOT force-shown as critical. The demotion is scoped to
-   ## the ' BUG:' token ONLY -- a hard_critical line that merely ALSO contains the phrase
-   ## stays critical. '|| true' keeps a no-match grep from tripping errexit (pipefail is
-   ## intentionally off); 'sort --unique' drops the overlap when a line matches both arms.
+   ## Critical = every hard_critical line PLUS every uppercase ' BUG:' line. '|| true'
+   ## keeps a no-match grep from tripping errexit; 'sort --unique' drops the overlap when
+   ## a line matches both arms.
    ## Tor non-fatal microdesc assertion reference:
    ## https://gitlab.torproject.org/tpo/core/tor/-/issues/31364
    {
       grep --ignore-case --extended-regexp -- "${hard_critical}" "${file}" || true
-      grep --ignore-case --fixed-strings -- "${bug_token}" "${file}" \
-        | grep --ignore-case --invert-match --fixed-strings -- 'Non-fatal assertion' || true
+      grep --fixed-strings -- "${bug_token}" "${file}" || true
    } | sort --unique | stcatn
 
    safe-rm --force -- "${file}"

@@ -170,7 +170,7 @@ check_service_logs() {
 }
 
 check_critical_logs() {
-   local hard_critical bug_token file
+   local hard_critical kernel_ident file
 
    file="${TMPDIR}/journalctl_match_filtered.txt_br"
    if ! test -e "${file}"; then
@@ -179,29 +179,24 @@ check_critical_logs() {
 
    ## Kernel-catastrophe tokens that are ALWAYS critical ("so bad they must be shown").
    hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
-   ## ' BUG:' catches a kernel BUG:/oops; the leading space avoids 'debug:'. Matched
-   ## case-INSENSITIVELY so it also catches Tor's userspace mixed-case 'Bug:' (Tor's log.c
-   ## prepends 'Bug: ' to every LD_BUG line) -- we WANT that for a FATAL Tor assert, so the
-   ## demotion below is CONTENT-scoped, not case-scoped.
-   bug_token=' BUG:'
+   ## ' BUG:' (a kernel BUG:/oops; the leading space avoids 'debug:') is force-shown ONLY on
+   ## KERNEL-origin lines, matched by the journald short-format syslog identifier ' kernel:'
+   ## (parse_cmd's readers run 'journalctl --output short', which prints '<host> kernel:'
+   ## for kernel messages). Tor's userspace 'Bug:' lines -- tor_bug_occurred_() non-fatal
+   ## asserts, tor_assertion_failed_() aborts, and log_backtrace() frames alike -- are NOT
+   ## kernel catastrophes; they are surfaced by the service-log check, not this always-shown
+   ## tier. Tor logs them mixed-case 'Bug:' with no stable backtrace signature, so there is
+   ## no robust content filter -- anchoring to the kernel identifier is both correct and
+   ## tamper-resistant: no process-controlled journal text (a comm/name on a kernel line)
+   ## can add or hide a critical line.
+   kernel_ident=' kernel:'
 
-   ## Critical = every hard_critical line, PLUS every ' BUG:' line EXCEPT the two Tor
-   ## soft-assert forms that are survivable noise:
-   ##   'Non-fatal assertion' -- tor_bug_occurred_()'s self-declared soft assert.
-   ##   'tor_log(): Bug:'      -- log_backtrace()'s stack-frame records.
-   ## A FATAL Tor assert (tor_assertion_failed_(): "... Assertion ... failed; aborting.")
-   ## carries NEITHER token, so it STAYS critical -- demoting it would silently hide a Tor
-   ## abort, and a health checker must not false-negative. A fatal assert's own backtrace
-   ## frames are demoted too, but its 'aborting' line stays, so the crash is still shown.
    ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the
    ## overlap when a line matches both arms.
-   ## Tor non-fatal microdesc assertion reference:
-   ## https://gitlab.torproject.org/tpo/core/tor/-/issues/31364
    {
       grep --ignore-case --extended-regexp -- "${hard_critical}" "${file}" || true
-      grep --ignore-case --fixed-strings -- "${bug_token}" "${file}" \
-        | grep --ignore-case --invert-match --fixed-strings -- 'Non-fatal assertion' \
-        | grep --invert-match --fixed-strings -- 'tor_log(): Bug:' || true
+      grep --ignore-case --fixed-strings -- ' BUG:' "${file}" \
+        | grep --fixed-strings -- "${kernel_ident}" || true
    } | sort --unique | stcatn
 
    safe-rm --force -- "${file}"

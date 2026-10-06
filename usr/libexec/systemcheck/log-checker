@@ -177,7 +177,6 @@ check_service_logs() {
   ## input as one HTML blob). leaprun stderr is NOT folded in (no '2>&1'), so a journalctl
   ## error message can never be mistaken for a kernel catastrophe.
   safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
-  touch -- "${TMPDIR}/journalctl_kernel.txt"
   if [ "${check_boot}" = 'this_boot' ]; then
     leaprun read-journalctl-kernel-logs-this-boot | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
   else
@@ -190,31 +189,37 @@ check_critical_logs() {
 
    ## Raw kernel-transport stream written by check_service_logs (journalctl --dmesg via the
    ## read-journalctl-kernel-logs-* leap actions). _TRANSPORT=kernel guarantees each line
-   ## came from the KERNEL, so no userspace process can HIDE a real kernel BUG from this
-   ## tier. It does NOT make the matched text fully trusted: the kernel echoes some
-   ## unprivileged-controlled strings (a process comm in a segfault/oom line), so a crafted
-   ## comm containing ' BUG:' can still raise a FALSE-positive critical. That is a forced
-   ## false alarm (it hides nothing -- see the per-line sanitize below) and is pre-existing
-   ## from when ' BUG:' matched on the mixed stream; anchoring the token to the kernel
-   ## message start would narrow it but risks missing a real non-start 'BUG:', so it is left
-   ## as a possible follow-up.
+   ## came from the KERNEL, so no userspace process can HIDE a real kernel catastrophe from
+   ## this tier (the safe direction). It does NOT make the matched TEXT trusted: the kernel
+   ## echoes attacker-controllable strings of any length (a process comm, a USB string
+   ## descriptor, an exec path in a segfault, an audit/apparmor path), so ANY of the tokens
+   ## below can be forged into a FALSE-positive critical. That is a forced false alarm (it
+   ## hides nothing -- see the per-line sanitize below), lower-risk than the prior match on
+   ## the whole mixed stream, and is accepted here: narrowing it (anchoring each token to a
+   ## kernel-subsystem prefix) is an open-ended exercise that risks missing a real variant,
+   ## left as a possible follow-up.
+   ## NOTE a failed kernel read surfaces as an EMPTY file -> no critical shown: the same
+   ## silent-on-read-failure behavior as the rest of systemcheck's journal checks.
    raw="${TMPDIR}/journalctl_kernel.txt"
    if ! test -e "${raw}"; then
       return 0
    fi
 
    ## Kernel catastrophes that are ALWAYS critical ("so bad they must be shown"):
-   ##   hard_critical : Bad RAM / CPU-stall / nouveau-killed (each > TASK_COMM_LEN-1 chars,
-   ##                   so a process comm cannot forge them; only ' BUG:' is short enough).
-   ##   ' BUG:'       : a kernel BUG:/oops (the leading space avoids 'debug:').
+   ##   hard_critical : Bad RAM / CPU-stall / nouveau-killed.
+   ##   BUG           : a kernel BUG:/oops/BUG_ON. Word-boundaried + case-SENSITIVE uppercase
+   ##                   so it matches BOTH 'BUG:' and 'kernel BUG at <file>:<line>!' (the
+   ##                   BUG() macro form, no colon) while never matching 'debug'/'DEBUG'.
    ## Grep from the RAW stream FIRST, so an unrelated line cannot be eaten before it matches.
    ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the
-   ## overlap when a line matches both arms.
+   ## overlap when a line matches both arms. The matched set is normally a handful of lines;
+   ## the per-line sanitize below is O(matches), bounded in practice by how many genuine
+   ## kernel catastrophes a boot can hold.
    hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
    matched="${TMPDIR}/journalctl_kernel_critical.txt"
    {
       grep --ignore-case --extended-regexp -- "${hard_critical}" "${raw}" || true
-      grep --ignore-case --fixed-strings -- ' BUG:' "${raw}" || true
+      grep --extended-regexp -- '(^|[^A-Za-z])BUG($|[^A-Za-z])' "${raw}" || true
    } | sort --unique > "${matched}"
 
    ## Neutralize HTML in each shown line for the GUI, then add '<br />' line breaks.

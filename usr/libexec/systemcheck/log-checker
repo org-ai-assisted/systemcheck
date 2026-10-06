@@ -64,8 +64,7 @@ prep_temp_dir() {
   ## world-readable or attacker-owned dir would leak its full contents.
   # shellcheck disable=SC2174
   mkdir --parents --mode=700 -- "${TMPDIR}"
-  if test -h "${TMPDIR}" || ! test -d "${TMPDIR}" \
-    || [ "$(stat -c '%u' -- "${TMPDIR}")" != "${EUID}" ] \
+  if test -h "${TMPDIR}" || ! test -d "${TMPDIR}" || ! test -O "${TMPDIR}" \
     || [ "$(stat -c '%a' -- "${TMPDIR}")" != '700' ]; then
     printf '%s\n' "$0: ${FUNCNAME[0]}: ERROR: Temporary directory '${TMPDIR}' is unsafe (must be a non-symlink directory, owned by this user, mode 0700)!"
     return 1
@@ -74,17 +73,20 @@ prep_temp_dir() {
 }
 
 check_service_logs() {
-  local patterns grep_ignore_fixed_items_command journal_ignore_fixed_item journal_search_pattern_list check_boot
+  local grep_ignore_fixed_items_command journal_ignore_fixed_item grep_ignore_patterns_command journal_ignore_pattern_item journal_search_pattern_list check_boot
 
   check_boot="${1:-}"
 
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
   touch -- "${TMPDIR}/journalctl_output.txt"
 
+  ## leaprun's exit status is intentionally ignored: pipefail is off, so a
+  ## non-zero leaprun mid-pipeline does not abort under errexit (the pipeline
+  ## takes tee's status). No subshell / '|| true' needed.
   if [ "${check_boot}" = 'this_boot' ]; then
-    ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
+    leaprun read-journalctl-logs-this-boot 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
   elif [ "${check_boot}" = 'last_boot' ]; then
-    ( leaprun read-journalctl-logs-last-boot || true ) 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
+    leaprun read-journalctl-logs-last-boot 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
   else
     printf '%s\n' "$0: ${FUNCNAME[0]}: ERROR: Unrecognized boot identifier '${check_boot}', expected 'this_boot' or 'last_boot'!"
     return 1
@@ -123,12 +125,16 @@ check_service_logs() {
 
   safe-rm --force -- "${TMPDIR}/journalctl_matched.txt"
 
-  ## No ignore patterns -> filter NOTHING: an empty extended-regexp matches every
-  ## line, so 'grep --invert-match' would drop ALL lines and the check would
-  ## report clean having inspected nothing.
+  ## No ignore patterns -> filter NOTHING: a grep with no -e pattern (or an empty
+  ## one) would drop ALL lines and the check would report clean having inspected
+  ## nothing. Each pattern is passed as its own -e (an extended regexp), which ORs
+  ## them exactly like the old '|'-join but needs no command substitution.
   if [ "${#journal_ignore_patterns_list[@]}" -gt 0 ]; then
-    patterns="$(printf '%s|' "${journal_ignore_patterns_list[@]}" | head -c-1)"
-    grep --invert-match --extended-regexp --ignore-case "${patterns}" -- "${TMPDIR}/journalctl_fixed_filtered.txt" \
+    grep_ignore_patterns_command=( grep --invert-match --extended-regexp --ignore-case )
+    for journal_ignore_pattern_item in "${journal_ignore_patterns_list[@]}"; do
+      grep_ignore_patterns_command+=( -e "${journal_ignore_pattern_item}" )
+    done
+    "${grep_ignore_patterns_command[@]}" -- "${TMPDIR}/journalctl_fixed_filtered.txt" \
       | tee -- "${TMPDIR}/journalctl_match_filtered.txt" >/dev/null
   else
     cp -- "${TMPDIR}/journalctl_fixed_filtered.txt" "${TMPDIR}/journalctl_match_filtered.txt"

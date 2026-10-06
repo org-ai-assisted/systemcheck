@@ -103,6 +103,22 @@ check_service_logs() {
     return 1
   fi
 
+  ## Kernel-transport journal, captured SEPARATELY for the always-shown critical tier
+  ## (check_critical_logs reads the '_br' file this produces). journalctl --dmesg selects
+  ## _TRANSPORT=kernel messages only, so a userspace process cannot forge a kernel line
+  ## into the critical stream -- the origin guarantee is structural, not a substring match.
+  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
+  touch -- "${TMPDIR}/journalctl_kernel.txt"
+  if [ "${check_boot}" = 'this_boot' ]; then
+    leaprun read-journalctl-kernel-logs-this-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+  else
+    leaprun read-journalctl-kernel-logs-last-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+  fi
+  sanitize-string -- nolimit < "${TMPDIR}/journalctl_kernel.txt" > "${TMPDIR}/journalctl_kernel.txt.tmp"
+  mv -- "${TMPDIR}/journalctl_kernel.txt.tmp" "${TMPDIR}/journalctl_kernel.txt"
+  br_add_to_file "${TMPDIR}/journalctl_kernel.txt"
+  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
+
   ## 'BUG' is word-boundary anchored (like 'fault' below) so it matches real
   ## kernel reports ('BUG:', 'kernel BUG at') but NOT the substring in words like
   ## 'debugging'.
@@ -170,36 +186,29 @@ check_service_logs() {
 }
 
 check_critical_logs() {
-   local hard_critical kernel_ident file
+   local hard_critical file
 
-   file="${TMPDIR}/journalctl_match_filtered.txt_br"
+   ## Kernel-transport-only stream written by check_service_logs (journalctl --dmesg via
+   ## the read-journalctl-kernel-logs-* leap actions). Every line here is _TRANSPORT=kernel,
+   ## which userspace cannot forge, so the kernel origin is guaranteed STRUCTURALLY -- this
+   ## function only has to match the catastrophe tokens, no identifier substring.
+   file="${TMPDIR}/journalctl_kernel.txt_br"
    if ! test -e "${file}"; then
       return 0
    fi
 
-   ## Kernel-catastrophe tokens that are ALWAYS critical ("so bad they must be shown").
-   hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
-   ## ' BUG:' (a kernel BUG:/oops; the leading space avoids 'debug:') is force-shown ONLY on
-   ## lines that also carry the ' kernel:' syslog identifier (parse_cmd's readers run
-   ## 'journalctl --output short', which prints '<host> kernel:' for kernel messages). Tor's
-   ## userspace 'Bug:' lines -- tor_bug_occurred_() non-fatal asserts, tor_assertion_failed_()
-   ## aborts, and log_backtrace() frames alike -- are NOT kernel catastrophes; Tor logs them
-   ## mixed-case 'Bug:' with no stable backtrace signature, so there is no robust content
-   ## filter. They are surfaced by the service-log check, not this always-shown tier.
-   ## This cannot HIDE a real kernel BUG: a genuine kernel line always carries ' kernel:'.
-   ## SCOPE: ' kernel:' is a substring test, not a positional field anchor, so a local
-   ## process that logs 'kernel:' next to 'BUG:' in its OWN message can raise a FALSE-positive
-   ## critical -- the same forgeability class as the prior ' BUG:'-anywhere match, and
-   ## strictly rarer. A capture-time _TRANSPORT=kernel / --dmesg anchor in parse_cmd is the
-   ## robust follow-up.
-   kernel_ident=' kernel:'
-
+   ## Kernel catastrophes that are ALWAYS critical ("so bad they must be shown"):
+   ##   hard_critical : Bad RAM / CPU-stall / nouveau-killed.
+   ##   ' BUG:'       : a kernel BUG:/oops (the leading space avoids 'debug:').
+   ## Tor's userspace 'Bug:' lines (tor_bug_occurred_() non-fatal asserts,
+   ## tor_assertion_failed_() aborts, log_backtrace() frames) are NOT in this kernel stream,
+   ## so they are never force-shown here; Tor health is a service-log concern.
    ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the
    ## overlap when a line matches both arms.
+   hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
    {
       grep --ignore-case --extended-regexp -- "${hard_critical}" "${file}" || true
-      grep --ignore-case --fixed-strings -- ' BUG:' "${file}" \
-        | grep --fixed-strings -- "${kernel_ident}" || true
+      grep --ignore-case --fixed-strings -- ' BUG:' "${file}" || true
    } | sort --unique | stcatn
 
    safe-rm --force -- "${file}"

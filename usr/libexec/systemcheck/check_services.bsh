@@ -217,10 +217,33 @@ check_journal() {
 
    ## The contents of these four variables are sanitize-string'd by
    ## log-checker.
-   log_output="$(leaprun log-checker-check_service_logs_this_boot)" || true
-   critical_output="$(leaprun log-checker-check_critical_logs)" || true
+   ##
+   ## This-boot reads MUST succeed -- the running boot always exists -- so a non-zero
+   ## here is a genuine journal-read failure (privleap denial, broken journalctl, a
+   ## corrupted journal). It must NOT be swallowed into an empty string that then
+   ## reads as a clean journal (false green); it is surfaced below.
+   local journal_read_rc=0
+   log_output="$(leaprun log-checker-check_service_logs_this_boot)" || journal_read_rc="${?}"
+   critical_output="$(leaprun log-checker-check_critical_logs)" || journal_read_rc="${?}"
+
+   ## Last-boot reads may legitimately fail when there is no previous boot (first
+   ## boot, or a volatile / non-persistent journal): 'journalctl --boot=-1' exits
+   ## non-zero with "No journal boot entry found". That is benign, so these stay
+   ## lenient -- and any boot-independent mechanism failure is already caught above.
    last_boot_log_output="$(leaprun log-checker-check_service_logs_last_boot)" || true
    last_boot_critical_output="$(leaprun log-checker-check_critical_logs)" || true
+
+   if [ "${journal_read_rc}" -ne "0" ]; then
+      ## Could not read this boot's journal. Report it and STOP -- do not fall through
+      ## to the per-boot result prints, which would otherwise show a misleading "no
+      ## critical messages" for an empty-because-unreadable result.
+      EXIT_CODE="1"
+      MSG="<p>systemd journal check result: <b>Could not read the systemd journal</b> (read failed with exit code ${journal_read_rc}).
+<br />
+<br />Journal-based checks could not be completed, so this is NOT a clean result. A denied privilege (privleap), a broken <code>journalctl</code>, or a corrupted journal can cause this.</p>"
+      emit_message warning "${MSG}"
+      return 0
+   fi
 
    ## We intentionally do not filter the *_critical_output vars.
    log_output="$(apply_journal_ignore_cli "${log_output}")"

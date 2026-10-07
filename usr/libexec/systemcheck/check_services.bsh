@@ -234,15 +234,16 @@ check_journal() {
    last_boot_critical_output="$(leaprun log-checker-check_critical_logs)" || true
 
    if [ "${journal_read_rc}" -ne "0" ]; then
-      ## Could not read this boot's journal. Report it and STOP -- do not fall through
-      ## to the per-boot result prints, which would otherwise show a misleading "no
-      ## critical messages" for an empty-because-unreadable result.
+      ## Surface the read failure -- never let it pass as a clean journal -- but do
+      ## NOT stop: any critical lines that WERE captured must still be reported by the
+      ## prints below. A this-boot read error must not hide a successfully-read
+      ## last-boot catastrophe, nor a kernel line 'tee'd into the critical file before
+      ## the stream errored mid-way.
       EXIT_CODE="1"
       MSG="<p>systemd journal check result: <b>Could not read the systemd journal</b> (read failed with exit code ${journal_read_rc}).
 <br />
-<br />Journal-based checks could not be completed, so this is NOT a clean result. A denied privilege (privleap), a broken <code>journalctl</code>, or a corrupted journal can cause this.</p>"
+<br />Some journal-based checks could not be completed, so this is NOT a clean result. A denied privilege (privleap), a broken <code>journalctl</code>, or a corrupted journal can cause this. Any messages still detected are shown below.</p>"
       emit_message warning "${MSG}"
-      return 0
    fi
 
    ## We intentionally do not filter the *_critical_output vars.

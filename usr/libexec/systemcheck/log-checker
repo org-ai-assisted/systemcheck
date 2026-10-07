@@ -180,14 +180,17 @@ check_service_logs() {
   ## a failure here cannot suppress the service-log output already emitted above (the file
   ## was already cleared at the top of this function). Left UN-sanitized on purpose --
   ## check_critical_logs greps it before neutralizing, so a '<' in one line cannot swallow a
-  ## later catastrophe line. leaprun stderr is NOT folded in (no '2>&1'), so a journalctl
-  ## error message can never be mistaken for a kernel catastrophe. The reader passes '--all'
-  ## so a catastrophe printk carrying a control byte is NOT blanked to '[blob data]' (which
-  ## would hide it from the grep).
+  ## later catastrophe line. The reader passes '--all' so a catastrophe printk carrying a
+  ## control byte is NOT blanked to '[blob data]' (which would hide it from the grep).
+  ## '2>&1' folds leaprun/journalctl stderr INTO this file (as the service reader does): the
+  ## top-level 'exec 2>&1' would otherwise route it onto this function's STDOUT, AFTER the
+  ## service-log body, where it would show as a spurious journal warning. Folded here it is
+  ## harmless -- the critical grep's 'BUG(:| at )' / hard tokens never match a journalctl
+  ## error string.
   if [ "${check_boot}" = 'this_boot' ]; then
-    leaprun read-journalctl-kernel-logs-this-boot | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+    leaprun read-journalctl-kernel-logs-this-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
   else
-    leaprun read-journalctl-kernel-logs-last-boot | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+    leaprun read-journalctl-kernel-logs-last-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
   fi
 }
 
@@ -220,11 +223,15 @@ check_critical_logs() {
    ##                   (e.g. an apparmor-denied 'name="/tmp/BUG"').
    ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the
    ## overlap when a line matches both arms.
+   ## '--text' is REQUIRED: '--all' delivers raw bytes, and a single NUL anywhere in the
+   ## stream makes GNU grep treat it as BINARY and print 'binary file matches' INSTEAD of the
+   ## catastrophe line -- i.e. it would hide the real line. '--text' forces line-wise text
+   ## matching (the NUL is neutralized to '_' by the tr below).
    hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
    matched="${TMPDIR}/journalctl_kernel_critical.txt"
    {
-      grep --ignore-case --extended-regexp -- "${hard_critical}" "${raw}" || true
-      grep --extended-regexp -- '(^|[^A-Za-z])BUG(:| at )' "${raw}" || true
+      grep --text --ignore-case --extended-regexp -- "${hard_critical}" "${raw}" || true
+      grep --text --extended-regexp -- '(^|[^A-Za-z])BUG(:| at )' "${raw}" || true
    } | sort --unique > "${matched}"
 
    ## Render for the GUI with TWO single-pass stages, deliberately NOT the usual helpers:

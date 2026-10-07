@@ -228,17 +228,18 @@ check_critical_logs() {
    } | sort --unique > "${matched}"
 
    ## Render for the GUI with TWO single-pass stages, deliberately NOT the usual helpers:
-   ##   tr '<>&' -> '_'  neutralizes HTML metacharacters (NOT sanitize-string, which parses
-   ##                    the whole input as one HTML blob and an unclosed '<' deletes
-   ##                    everything after it -- on this always-shown tier that could DROP a
-   ##                    real catastrophe).
-   ##   sed appends '<br />'  (NOT br_add_to_file, which forks a 'tee' PER LINE).
+   ##   tr -> '_'   neutralizes the HTML metacharacters '<>&' AND every C0 control byte
+   ##               except tab/newline (ESC, BEL, etc. -- '--all' delivers them raw, so this
+   ##               prevents a terminal-escape / blob-hiding injection via attacker-echoed
+   ##               kernel text; this is the char-level neutralization sanitize-string does,
+   ##               WITHOUT its whole-blob '<'-tag deletion that could DROP a later line).
+   ##   sed appends '<br />'   (NOT br_add_to_file, which forks a 'tee' PER LINE).
    ## Both are single-pass: no deletion, no per-line fork, no line cap -- so nothing can be
    ## hidden or starved here, and a flood cannot turn rendering into a stall. (A pathological
    ## multi-MiB forged flood can still hit the GUI message dispatcher's own volume limit
    ## downstream -- volume bounding, if ever wanted, belongs there, not a cap here that an
    ## attacker could aim a real catastrophe line past.)
-   tr '<>&' '___' < "${matched}" | sed 's|$|<br />|' > "${matched}_br"
+   tr '<>&\000-\010\013-\037\177' '_' < "${matched}" | sed 's|$|<br />|' > "${matched}_br"
    stcatn "${matched}_br"
 
    safe-rm --force -- "${raw}" "${matched}" "${matched}_br"

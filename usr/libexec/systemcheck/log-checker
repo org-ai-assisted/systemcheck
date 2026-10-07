@@ -89,6 +89,12 @@ check_service_logs() {
 
   check_boot="${1:-}"
 
+  ## Remove the kernel critical-stream file UP FRONT (TMPDIR is shared across the per-boot
+  ## leap invocations). If a later step aborts under errexit before the capture at the end,
+  ## check_critical_logs then finds NO file rather than a STALE one from a prior boot/run
+  ## (which it would otherwise mislabel as this boot's catastrophes).
+  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
+
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
   touch -- "${TMPDIR}/journalctl_output.txt"
 
@@ -171,12 +177,11 @@ check_service_logs() {
 
   ## Kernel-transport journal (journalctl --dmesg, _TRANSPORT=kernel only), captured RAW
   ## for the always-shown critical tier: check_critical_logs reads this file. Done LAST so
-  ## a failure here cannot suppress the service-log output already emitted above. Left
-  ## UN-sanitized on purpose -- check_critical_logs greps it before sanitizing, so a '<' in
-  ## one line cannot swallow a later catastrophe line (sanitize-string parses its whole
-  ## input as one HTML blob). leaprun stderr is NOT folded in (no '2>&1'), so a journalctl
+  ## a failure here cannot suppress the service-log output already emitted above (the file
+  ## was already cleared at the top of this function). Left UN-sanitized on purpose --
+  ## check_critical_logs greps it before neutralizing, so a '<' in one line cannot swallow a
+  ## later catastrophe line. leaprun stderr is NOT folded in (no '2>&1'), so a journalctl
   ## error message can never be mistaken for a kernel catastrophe.
-  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
   if [ "${check_boot}" = 'this_boot' ]; then
     leaprun read-journalctl-kernel-logs-this-boot | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
   else
@@ -220,19 +225,18 @@ check_critical_logs() {
       grep --extended-regexp -- '(^|[^A-Za-z])BUG(:| at )' "${raw}" || true
    } | sort --unique > "${matched}"
 
-   ## Neutralize the HTML-significant characters for GUI rendering, then add '<br />' line
-   ## breaks. Done with a direct translation, NOT sanitize-string, on purpose: sanitize-string
-   ## parses its whole input as one HTML blob and an unclosed '<' deletes everything after it,
-   ## which on this always-shown tier could DROP a real kernel catastrophe (and a per-line
-   ## sanitize to avoid that either forks per line -- an attacker-spammable stall -- or needs a
-   ## line cap, which an attacker can use to push a real catastrophe past the cut). Translating
-   ## '<>&' to '_' neutralizes EVERY line in one pass: no deletion, no fork, no cap, so no
-   ## catastrophe can be hidden or starved here. (A pathological multi-MiB forged flood can
-   ## still hit the GUI message dispatcher's own volume limit downstream -- volume bounding,
-   ## if ever wanted, belongs there, not a cap here that an attacker could aim a real line past.)
-   tr '<>&' '___' < "${matched}" > "${matched}.san"
-   mv -- "${matched}.san" "${matched}"
-   br_add_to_file "${matched}"
+   ## Render for the GUI with TWO single-pass stages, deliberately NOT the usual helpers:
+   ##   tr '<>&' -> '_'  neutralizes HTML metacharacters (NOT sanitize-string, which parses
+   ##                    the whole input as one HTML blob and an unclosed '<' deletes
+   ##                    everything after it -- on this always-shown tier that could DROP a
+   ##                    real catastrophe).
+   ##   sed appends '<br />'  (NOT br_add_to_file, which forks a 'tee' PER LINE).
+   ## Both are single-pass: no deletion, no per-line fork, no line cap -- so nothing can be
+   ## hidden or starved here, and a flood cannot turn rendering into a stall. (A pathological
+   ## multi-MiB forged flood can still hit the GUI message dispatcher's own volume limit
+   ## downstream -- volume bounding, if ever wanted, belongs there, not a cap here that an
+   ## attacker could aim a real catastrophe line past.)
+   tr '<>&' '___' < "${matched}" | sed 's|$|<br />|' > "${matched}_br"
    stcatn "${matched}_br"
 
    safe-rm --force -- "${raw}" "${matched}" "${matched}_br"

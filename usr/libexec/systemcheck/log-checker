@@ -181,7 +181,9 @@ check_service_logs() {
   ## was already cleared at the top of this function). Left UN-sanitized on purpose --
   ## check_critical_logs greps it before neutralizing, so a '<' in one line cannot swallow a
   ## later catastrophe line. leaprun stderr is NOT folded in (no '2>&1'), so a journalctl
-  ## error message can never be mistaken for a kernel catastrophe.
+  ## error message can never be mistaken for a kernel catastrophe. The reader passes '--all'
+  ## so a catastrophe printk carrying a control byte is NOT blanked to '[blob data]' (which
+  ## would hide it from the grep).
   if [ "${check_boot}" = 'this_boot' ]; then
     leaprun read-journalctl-kernel-logs-this-boot | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
   else

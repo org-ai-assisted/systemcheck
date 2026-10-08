@@ -99,6 +99,11 @@ ${qubes_update_help}</p>"
          fi
       fi
       emit_message warning "${MSG}"
+      ## A failed update check is a real finding, not a tolerable one: like every
+      ## other warning it must exit non-zero. The --ci exemption below covers only
+      ## the "packages can be updated" result, never a failure to check at all --
+      ## reporting success when the check could not run would be a false green.
+      EXIT_CODE="1"
       return 0
    fi
 

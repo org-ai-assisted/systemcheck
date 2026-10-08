@@ -233,6 +233,9 @@ systemcheck_main() {
    bash -n /usr/libexec/systemcheck/check_system_ready.bsh
    # shellcheck source=./check_system_ready.bsh
    source /usr/libexec/systemcheck/check_system_ready.bsh
+   bash -n /usr/libexec/systemcheck/check_tempdir.bsh
+   # shellcheck source=./check_tempdir.bsh
+   source /usr/libexec/systemcheck/check_tempdir.bsh
    bash -n /usr/libexec/systemcheck/check_timezone.bsh
    # shellcheck source=./check_timezone.bsh
    source /usr/libexec/systemcheck/check_timezone.bsh
@@ -358,6 +361,9 @@ systemcheck_main() {
 
    ## uses network: no
    systemcheck_run_function check_environment_variables ## check_environment_variables
+
+   ## uses network: no
+   systemcheck_run_function check_tempdir ## check_tempdir
 
    ## uses network: no
    systemcheck_run_function check_privleap_group_membership ## check_privilege_escalation_tool

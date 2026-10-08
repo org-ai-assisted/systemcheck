@@ -115,6 +115,10 @@ systemcheck_main() {
    # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/has.bsh
    source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
 
+   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/try-wait-for-privleap-socket-ready
+   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/try-wait-for-privleap-socket-ready
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/try-wait-for-privleap-socket-ready
+
    ## systemcheck sourced fragments. These are listed explicitly so they can be
    ## sourced by shellcheck. To update, open a terminal in
    ## systemcheck/usr/libexec/systemcheck, and run:
@@ -332,6 +336,16 @@ systemcheck_main() {
    systemcheck_run_function check_login_environment ## preparation
    systemcheck_run_function show_systemcheck_header ## preparation
    systemcheck_run_function input_notification ## preparation
+
+   ## privleapd's per-user comm socket (/run/privleapd/comm/<uid>) is created out
+   ## of band by leapctl@<uid>.service at login, independently of
+   ## privleapd.service, so it is not guaranteed connectable when systemcheck
+   ## starts (true on a fresh boot and in --autostart, which runs at login). Wait
+   ## for it ONCE here, before any leaprun-based check, so the race does not
+   ## misreport privleap -- and thus Tor state -- as unavailable. Bounded; if
+   ## privleap genuinely never becomes reachable, control falls through to each
+   ## check's existing privleap-unusable diagnosis.
+   try_wait_for_privleap_socket_ready
 
    ## uses network: no
    systemcheck_run_function check_unrestricted_mode_in_template ## check_unrestricted_mode_in_template

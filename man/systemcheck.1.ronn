@@ -59,6 +59,9 @@ which are important for security.
 
 130 Signal sigint received.
 
+A graphical run cancelled via the cancel button exits 0 (success); only sigterm
+and sigint yield a non-zero signal exit.
+
 ## EXAMPLE
 `systemcheck`
 

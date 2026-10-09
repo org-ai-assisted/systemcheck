@@ -2,46 +2,28 @@
 
 ## Copyright (C) 2026 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 ## AI-Assisted
 
-check_kernel_hardening_cmdline() {
-   local status_text
-   status_text="Kernel Command-Line Hardening"
-
-   if [ -f '/usr/share/qubes/marker-vm' ]; then
-      ## Kicksecure and Whonix on Qubes don't use kernel command line
-      ## hardening yet.
-      local MSG="<p>${status_text}: not applicable on Qubes VMs, ${status_ok}</p>"
-      run_if_verbose emit_message info "${MSG}"
-      return 0
-   fi
-
-   local kernel_cmdline
-   if [ -f /proc/cmdline ]; then
-      kernel_cmdline="$(cat -- /proc/cmdline 2>/dev/null)" || true
-   fi
-
-   if [ -z "${kernel_cmdline}" ]; then
-      local MSG="<p>${status_text}: <code>/proc/cmdline</code> unavailable or empty, cannot verify.</p>"
-      run_if_verbose emit_message info "${MSG}"
-      return 0
-   fi
-
-   ## All the security-relevant kernel hardening options that are enabled
-   ## unconditionally by security-misc and aren't effectively tested by
-   ## spectre-meltdown-checker already.
-   ##
-   ## To regenerate/verify this list, cd to the root of security-misc,
-   ## then run:
-   ##   grep --no-filename '^GRUB_CMDLINE_LINUX' \
-   ##      etc/default/grub.d/40_kernel_hardening.cfg* \
-   ##      etc/default/grub.d/41_recovery_restrict.cfg*
-   ## and take the trailing word of every non-commented assignment.
-   local -a hardening_tokens=(
+## All the security-relevant kernel hardening options that are enabled
+## unconditionally by security-misc and aren't effectively tested by
+## spectre-meltdown-checker already, one per line. A function, not a global
+## array: the /etc/systemcheck.d/*.conf files sourced before the check runs
+## could otherwise clear the list and turn the check vacuously green. A test
+## sources this file and calls it to read the exact list the check asserts.
+##
+## To regenerate/verify this list, cd to the root of security-misc,
+## then run:
+##   grep --no-filename '^GRUB_CMDLINE_LINUX' \
+##      etc/default/grub.d/40_kernel_hardening.cfg* \
+##      etc/default/grub.d/41_recovery_restrict.cfg*
+## and take the trailing word of every non-commented assignment.
+kernel_hardening_cmdline_tokens() {
+   local -a tokens=(
       ## 40_kernel_hardening.cfg
       'slab_nomerge'
       'slab_debug=FZ'
@@ -71,6 +53,31 @@ check_kernel_hardening_cmdline() {
       'rd.emergency=halt'
       'rd.shell=0'
    )
+   printf '%s\n' "${tokens[@]}"
+}
+
+check_kernel_hardening_cmdline() {
+   local status_text
+   status_text="Kernel Command-Line Hardening"
+
+   if [ -f '/usr/share/qubes/marker-vm' ]; then
+      ## Kicksecure and Whonix on Qubes don't use kernel command line
+      ## hardening yet.
+      local MSG="<p>${status_text}: not applicable on Qubes VMs, ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
+      return 0
+   fi
+
+   local kernel_cmdline
+   if [ -f /proc/cmdline ]; then
+      kernel_cmdline="$(cat -- /proc/cmdline 2>/dev/null)" || true
+   fi
+
+   if [ -z "${kernel_cmdline}" ]; then
+      local MSG="<p>${status_text}: <code>/proc/cmdline</code> unavailable or empty, cannot verify.</p>"
+      run_if_verbose emit_message info "${MSG}"
+      return 0
+   fi
 
    ## For 'key=value' style parameters, the last occurrence wins.
    ## TODO-HUMAN-REVIEWER-ONLY: Verify that the kernel behaves this way.
@@ -90,6 +97,8 @@ check_kernel_hardening_cmdline() {
 
    local -a missing_tokens=()
    local token token_key token_value
+   local -a hardening_tokens
+   mapfile -t hardening_tokens < <(kernel_hardening_cmdline_tokens)
    for token in "${hardening_tokens[@]}"; do
       case "${token}" in
          *=*)
@@ -107,7 +116,7 @@ check_kernel_hardening_cmdline() {
    done
 
    if [ "${#missing_tokens[@]}" -eq 0 ]; then
-      emit_status_line info "${status_text}" "" green "Present"
+      run_if_verbose emit_status_line info "${status_text}" "" green "Present"
    else
       local missing_joined
       missing_joined="$(IFS=' '; printf '%s' "${missing_tokens[*]}")"

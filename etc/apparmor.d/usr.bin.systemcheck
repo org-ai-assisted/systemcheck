@@ -133,6 +133,12 @@ include <tunables/global>
   /lib/security/* mr,
   /run/*/[0-9]*/msgcollector/ rwk,
   /run/*/[0-9]*/msgcollector/** rwk,
+  ## Self-lock dir (helper-scripts lockfile.sh): per-user single-instance flock under
+  ## XDG_RUNTIME_DIR. 'r' on the runtime dir for the ownership/symlink stat; 'rw' on
+  ## the lock dir for mkdir + stat; 'rwk' on the lock files for touch + the flock lock.
+  /run/user/*/ r,
+  /run/user/*/flocker-temp-folder/ rw,
+  /run/user/*/flocker-temp-folder/* rwk,
   /run/desktop-config-dist/livecheck-lsblk r,
   /run/log/journal/ r,
   /run/log/journal/** r,
@@ -322,6 +328,8 @@ include <tunables/global>
   /{,usr/}bin/sdwdate rix,
   /{,usr/}bin/sed rix,
   /{,usr/}bin/setsid mrix,
+  ## helper-scripts use_leaprun.sh privleapd connect probe. socat is a symlink to socat1.
+  /{,usr/}bin/socat{,1} rix,
   /{,usr/}bin/sleep rix,
   /{,usr/}bin/sort rix,
   /{,usr/}bin/spectre-meltdown-checker cux,

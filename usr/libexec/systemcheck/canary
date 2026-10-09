@@ -2,9 +2,14 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## canary_run/live_status_detected/systemd_notify set by sourced helper-scripts not followable by the local gate
 
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
+if ! declare -F was_executed >/dev/null; then
+   printf '%s\n' "$0: ERROR: cannot source check_runtime.bsh!" >&2
+   exit 1
+fi
 
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/has.bsh
 source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
@@ -30,7 +35,7 @@ error_handler() {
 canary_preparation() {
    source /usr/libexec/helper-scripts/light_sleep.bsh
    source /usr/libexec/helper-scripts/live-mode.sh
-   source /usr/libexec/systemcheck/canary-run-or-not
+   source "${SYSTEMCHECK_REPO:-}/usr/libexec/systemcheck/canary-run-or-not"
 
    ## sets: systemd_notify
    source /usr/libexec/helper-scripts/systemd-notify.bsh

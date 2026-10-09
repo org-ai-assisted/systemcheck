@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -11,7 +12,7 @@ check_control_port_filter_running() {
 
    ## Only testing on Whonix-Gateway, because Control Port Filter Proxy only
    ## runs on Whonix-Gateway.
-   if [ ! "$VM" = "Whonix-Gateway" ]; then
+   if [ ! "${VM}" = "Whonix-Gateway" ]; then
       return 0
    fi
 
@@ -24,11 +25,11 @@ check_control_port_filter_running() {
    i="0"
    while ! leaprun onion-grater-status >/dev/null 2>&1 ; do
       local MSG="<p>Control Port Filter Proxy test: The onion-grater service is not running. Waiting up to 30 seconds.</p>"
-      if [ "$silent" -le "2" ]; then
-         $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+      if [ "${silent}" -le "2" ]; then
+         ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
       fi
-      i="$(( $i + 1 ))"
-      if [ "$i" -ge "30" ]; then
+      i="$(( ${i} + 1 ))"
+      if [ "${i}" -ge "30" ]; then
          local if_you_know_what_you_are_doing_msg
          if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
          local remediation
@@ -40,15 +41,15 @@ check_control_port_filter_running() {
 <br/>Recommendation: try manually starting onion-grater.
 <br/>${remediation}
 
-$if_you_know_what_you_are_doing_msg</p>"
-         emit_message error "$MSG"
+${if_you_know_what_you_are_doing_msg}</p>"
+         emit_message error "${MSG}"
          EXIT_CODE="1"
          return 0
       fi
       sleep "1" &
       lastpid="$!"
-      wait "$lastpid" || true
+      wait "${lastpid}" || true
    done
-   local MSG="<p>Control Port Filter Proxy Test Result: $status_ok</p>"
-   run_if_verbose emit_message info "$MSG"
+   local MSG="<p>Control Port Filter Proxy Test Result: ${status_ok}</p>"
+   run_if_verbose emit_message info "${MSG}"
 }

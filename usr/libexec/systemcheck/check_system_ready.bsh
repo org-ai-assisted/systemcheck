@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -34,44 +35,44 @@ check_system_ready_shared() {
       ## Discard output of using '&>/dev/null' so we can launch into the background
       ## and check later by looking at file '/run/helper-scripts/system-ready-check' instead.
       result="$("${@}" 2>&1)" || true
-      [ -n "$result" ] || result="Empty."
+      [ -n "${result}" ] || result="Empty."
 
-      if [ "$result" = "running" ]; then
-         local MSG="<p>System ready check ($type) Result: $status_ok</p>"
-         run_if_verbose emit_message info "$MSG"
+      if [ "${result}" = "running" ]; then
+         local MSG="<p>System ready check (${type}) Result: ${status_ok}</p>"
+         run_if_verbose emit_message info "${MSG}"
          return 0
-      elif [ "$result" = "degraded" ]; then
+      elif [ "${result}" = "degraded" ]; then
          ## 'degraded' means one or more units failed. If every failed unit is
          ## on the --ignore-failed-unit list, the system is healthy for our
          ## purposes.
-         if check_system_ready_only_ignored_failed "$type"; then
-            local MSG="<p>System ready check ($type) Result: $status_ok</p>"
-            run_if_verbose emit_message info "$MSG"
+         if check_system_ready_only_ignored_failed "${type}"; then
+            local MSG="<p>System ready check (${type}) Result: ${status_ok}</p>"
+            run_if_verbose emit_message info "${MSG}"
             return 0
          fi
-         i="$max"
+         i="${max}"
       else
          true "INFO: keep waiting."
       fi
 
-      if [ "$i" -ge "$max" ]; then
+      if [ "${i}" -ge "${max}" ]; then
          EXIT_CODE="1"
          ## No need to list the offending units here, check_services.bsh does
          ## that already.
-         local MSG="<p>System ready check ($type) Result: Failed.
+         local MSG="<p>System ready check (${type}) Result: Failed.
 <br/>
 <br/>Debugging information:
 <br/>Command:
-<br/>$system_ready_check_help_text_cmd
-<br/>result: '<code>$result</code>'</p>"
-         emit_message warning "$MSG"
+<br/>${system_ready_check_help_text_cmd}
+<br/>result: '<code>${result}</code>'</p>"
+         emit_message warning "${MSG}"
          return 0
       fi
 
       (( i++ )) || true
-      if [ "$i" -ge 1 ]; then
-         local MSG="<p>System ready check ($type) Result: Waiting $i of $max.</p>"
-         $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+      if [ "${i}" -ge 1 ]; then
+         local MSG="<p>System ready check (${type}) Result: Waiting ${i} of ${max}.</p>"
+         ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
       fi
    done
 }
@@ -89,24 +90,27 @@ check_system_ready_only_ignored_failed() {
 
    [ -n "${systemcheck_ignore_failed_units_cli:-}" ] || return 1
 
-   if [ "$type" = "user" ]; then
+   if [ "${type}" = "user" ]; then
       failed_units="$(systemctl --user --failed --legend=false --no-pager --plain list-units 2>/dev/null)" || true
    else
       failed_units="$(systemctl --failed --legend=false --no-pager --plain list-units 2>/dev/null)" || true
    fi
 
-   for ignore_unit in $systemcheck_ignore_failed_units_cli; do
-      failed_units="$(printf '%s\n' "$failed_units" | grep --invert-match --fixed-strings -- "$ignore_unit" || true)"
+   for ignore_unit in ${systemcheck_ignore_failed_units_cli}; do
+      failed_units="$(printf '%s\n' "${failed_units}" | grep --invert-match --fixed-strings -- "${ignore_unit}" || true)"
    done
 
    ## Any non-whitespace remaining means a non-ignored unit failed.
-   if [[ "$failed_units" =~ [^[:space:]] ]]; then
+   if [[ "${failed_units}" =~ [^[:space:]] ]]; then
       return 1
    fi
    return 0
 }
 
 check_system_ready() {
+   ## --ci only: tolerate a tirdad-under-Secure-Boot systemd-modules-load degrade
+   ## (module-specific), by injecting into the ignore lists before the checks run.
+   systemcheck_modules_load_ci_tolerance
    check_system_ready_system
    check_system_ready_user
 }

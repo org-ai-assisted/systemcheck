@@ -2,12 +2,13 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 check_hostname() {
-   if [ "$vm_lower_case_short" = "machine" ]; then
+   if [ "${vm_lower_case_short}" = "machine" ]; then
       return 0
    fi
 
@@ -19,20 +20,20 @@ check_hostname() {
    check_hostname_field "--ip-address" "127.0.0.1"
    check_hostname_field "--domain"     "localdomain"
 
-   if [ "$hostname_exit_code_was_non_zero" = "true" ]; then
+   if [ "${hostname_exit_code_was_non_zero}" = "true" ]; then
       hostname_discouraged_setting_detected="true"
       emit_message error "<p>Check Hostname Result: <b>\"hostname\" exited at least once with \
 a non-zero exit code.</b> This is probably a network misconfiguration. See above.</p>"
       EXIT_CODE="1"
    fi
 
-   if [ "$hostname_discouraged_setting_detected" = "true" ]; then
+   if [ "${hostname_discouraged_setting_detected}" = "true" ]; then
       local if_you_know_what_you_are_doing_msg
       if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
       emit_message error "<p>Check Hostname Result:
-<br/><b>Hostname settings different from $PROJECT_NAME defaults.</b> (See above.)
+<br/><b>Hostname settings different from ${PROJECT_NAME} defaults.</b> (See above.)
 <br />
-<br />$if_you_know_what_you_are_doing_msg</p>"
+<br />${if_you_know_what_you_are_doing_msg}</p>"
       EXIT_CODE="1"
    fi
 }
@@ -47,21 +48,21 @@ check_hostname_field() {
    local field_flags field_expected field_label field_output field_exit_code
    field_flags="$1"
    field_expected="$2"
-   field_label="hostname${field_flags:+ $field_flags}"
+   field_label="hostname${field_flags:+ ${field_flags}}"
 
    field_exit_code="0"
    # shellcheck disable=SC2086
-   field_output="$(hostname $field_flags 2>&1)" || field_exit_code="$?"
-   field_output="$(sanitize-string -- 255 "$field_output")"
-   if [ ! "$field_exit_code" = "0" ]; then
+   field_output="$(hostname ${field_flags} 2>&1)" || field_exit_code="$?"
+   field_output="$(sanitize-string -- 255 "${field_output}")"
+   if [ ! "${field_exit_code}" = "0" ]; then
       hostname_exit_code_was_non_zero="true"
    fi
 
-   if [ "$field_output" = "$field_expected" ]; then
-      run_if_verbose emit_message info "<p>Check Hostname Result: \"$field_label\" output is \"$field_expected\", $status_ok</p>"
+   if [ "${field_output}" = "${field_expected}" ]; then
+      run_if_verbose emit_message info "<p>Check Hostname Result: \"${field_label}\" output is \"${field_expected}\", ${status_ok}</p>"
    else
       hostname_discouraged_setting_detected="true"
-      emit_message error "<p>Check Hostname Result: <b>\"$field_label\" output is not \"$field_expected\", it is \"$field_output\".</b> (hostname_exit_code: $field_exit_code)</p>"
+      emit_message error "<p>Check Hostname Result: <b>\"${field_label}\" output is not \"${field_expected}\", it is \"${field_output}\".</b> (hostname_exit_code: ${field_exit_code})</p>"
       EXIT_CODE="1"
    fi
 }

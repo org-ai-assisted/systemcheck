@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -20,6 +21,8 @@ check_tor_bootstrap() {
    fi
 
    while true; do
+      check_tor_bootstrap_require_leaprun || break || return 0
+
       check_tor_bootstrap_init
 
       check_tor_bootstrap_grace || continue || return 0
@@ -37,6 +40,45 @@ check_tor_bootstrap() {
 
       break
    done
+}
+
+check_tor_bootstrap_require_leaprun() {
+   ## systemcheck reads Tor's bootstrap percentage and circuit status through
+   ## privleap (leaprun). If privleapd is unreachable for this account, those
+   ## reads fail and are otherwise indistinguishable from "Tor not established
+   ## yet", so the loop waits out the whole timeout and systemcheck is SIGTERMed
+   ## with an ambiguous 124 that hides the real cause. Fail fast with the
+   ## specific privleapd-unavailable diagnosis instead. leaprun is mandatory for
+   ## systemcheck, so a normal session is a no-op here; this only trips when
+   ## privleap genuinely cannot be reached.
+   ##
+   ## Re-probe on EVERY call: `use_leaprun` is a global that systemcheck set once
+   ## at startup, and privleapd can also stop during the up-to-wait_max bootstrap
+   ## loop -- trusting the cached value would silently reintroduce the exact 124
+   ## this guard prevents. leaprun_useable_test comes from use_leaprun.sh, sourced
+   ## during systemcheck startup.
+   leaprun_useable_test
+
+   if [ "${use_leaprun}" = "yes" ]; then
+      return 0
+   fi
+
+   ## sanitize-string strips markup from the (username-bearing) diagnostic before
+   ## it goes into the HTML message, matching tor_bootstrap_status handling.
+   local leaprun_diagnosis
+   leaprun_diagnosis="$(sanitize-string -- 255 "${leaprun_useable_result:-}")"
+   local MSG="<p>Tor Connection Result:
+<br/><b>Cannot query Tor's status.</b>
+<br/>systemcheck reads Tor's bootstrap and circuit state via privleap
+(<code>leaprun</code>), but privleap is not usable for this account, so whether
+Tor is connected cannot be determined. This is NOT the same as Tor being down.
+<br/>
+<br/>Details: <code>${leaprun_diagnosis}</code></p>"
+   emit_message error "${MSG}"
+   EXIT_CODE="1"
+   cleanup "1"
+   ## `break` check_tor_bootstrap loop.
+   return 1
 }
 
 check_tor_bootstrap_sleep() {

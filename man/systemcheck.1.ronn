@@ -40,6 +40,14 @@ which are important for security.
 
     Deactivates output auto detection. Enables cli output.
 
+  * --ci
+
+    CI / automated-test mode. Its ONLY effect: the "packages can be updated"
+    finding (expected on a freshly installed, not-yet-upgraded system) does not
+    set a non-zero exit code. The exit code for every other finding is unchanged
+    from a normal run. Intended for gating a test harness; it does not change
+    interactive behaviour.
+
 ## EXIT CODES
 0 Success
 
@@ -50,6 +58,9 @@ which are important for security.
 143 Signal sigterm received.
 
 130 Signal sigint received.
+
+A graphical run cancelled via the cancel button exits 0 (success); only sigterm
+and sigint yield a non-zero signal exit.
 
 ## EXAMPLE
 `systemcheck`

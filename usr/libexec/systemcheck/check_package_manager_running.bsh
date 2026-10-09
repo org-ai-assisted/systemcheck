@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## globals set by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -15,23 +16,23 @@ check_package_manager_running() {
    default_if_empty systemcheck_package_manager_wait_max "1200"
    waited="0"
    while ! check_package_manager_running_helper; do
-      if [ "$waited" -ge "$systemcheck_package_manager_wait_max" ]; then
-         if [ "$systemcheck_package_manager_waiting" = "1" ]; then
-            $output_x "${output_opts[@]}" --progressbaridx "$progressbaridx" --progressx "100"
+      if [ "${waited}" -ge "${systemcheck_package_manager_wait_max}" ]; then
+         if [ "${systemcheck_package_manager_waiting}" = "1" ]; then
+            ${output_x} "${output_opts[@]}" --progressbaridx "${progressbaridx}" --progressx "100"
          fi
          MSG="<p>Check Package Manager Running Result: a package manager (apt/dpkg) is still running after ${systemcheck_package_manager_wait_max} seconds; continuing without waiting further.</p>"
-         emit_message warning "$MSG"
+         emit_message warning "${MSG}"
          return 0
       fi
-      if ! [ "$systemcheck_package_manager_waiting" = "1" ]; then
+      if ! [ "${systemcheck_package_manager_waiting}" = "1" ]; then
          systemcheck_package_manager_waiting="1"
 
          progressbaridx="$(cat "/proc/sys/kernel/random/uuid")"
 
-         MSG="$package_manager_waiting_msg_x"
-         $output_cli "${output_opts[@]}" --waitmessagecli --typecli "info" --message "$MSG" --done
+         MSG="${package_manager_waiting_msg_x}"
+         ${output_cli} "${output_opts[@]}" --waitmessagecli --typecli "info" --message "${MSG}" --done
          ## Start progress bar to show we are waiting.
-         $output_x "${output_opts[@]}" --progressbaridx "$progressbaridx" --progressbarx --parentpid "$$" --progressbartitlex "$TITLE_X" --message "$MSG" --done
+         ${output_x} "${output_opts[@]}" --progressbaridx "${progressbaridx}" --progressbarx --parentpid "$$" --progressbartitlex "${TITLE_X}" --message "${MSG}" --done
       fi
 
       ## TODO: Consider stepping the progress bar forward as timeout
@@ -42,10 +43,10 @@ check_package_manager_running() {
       waited="$(( waited + 10 ))"
    done
 
-   if [ "$systemcheck_package_manager_waiting" = "1" ]; then
-      $output_x "${output_opts[@]}" --progressbaridx "$progressbaridx" --progressx "100"
+   if [ "${systemcheck_package_manager_waiting}" = "1" ]; then
+      ${output_x} "${output_opts[@]}" --progressbaridx "${progressbaridx}" --progressx "100"
    fi
-   MSG="<p>Check Package Manager Running Result: None running, $status_ok</p>"
-   run_if_verbose emit_message info "$MSG"
+   MSG="<p>Check Package Manager Running Result: None running, ${status_ok}</p>"
+   run_if_verbose emit_message info "${MSG}"
    return 0
 }

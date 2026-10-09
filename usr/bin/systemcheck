@@ -2,6 +2,8 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+## style-ok: no-strict
+## Explicit strict options set; global 'export LC_ALL=C' omitted by design (locale forced per-command).
 
 #set -x
 set -o errexit
@@ -18,7 +20,12 @@ shopt -s shift_verbose
 #exec 5>&1 1>> "/$TMP/systemcheck-debug.txt"
 #exec 6>&2 2>> "/$TMP/systemcheck-debug.txt"
 
-#source /usr/libexec/helper-scripts/lockfile.sh
+## Self-lock: serialize whole systemcheck runs per user so concurrent invocations
+## cannot race on the shared log-checker TMPDIR. MUST stay the first executable
+## statement: lockfile.sh re-execs this script under flock, so any code above it
+## runs twice (the set-options above are idempotent, so that is harmless). A second
+## concurrent run exits 75 (EX_TEMPFAIL) with an "already running" message.
+source /usr/libexec/helper-scripts/lockfile.sh
 
 if [ -o xtrace ]; then
   ## NOTE: Not using 'bash -x' as this would disable AppArmor.

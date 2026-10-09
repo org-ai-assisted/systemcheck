@@ -2,21 +2,22 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## globals set by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 disclaimer() {
-   if [ "$qubes_detected" = "true" ]; then
-      true "INFO: qubes_detected is $qubes_detected, therefore skipping ${FUNCNAME[0]}."
+   if [ "${qubes_detected}" = "true" ]; then
+      true "INFO: qubes_detected is ${qubes_detected}, therefore skipping ${FUNCNAME[0]}."
       return 0
    fi
 
-   if [ "$VM" = "machine" ]; then
-      local MSG="<p><a href=$PROJECT_HOMEPAGE>$PROJECT_NAME</a> is a research project.</p>"
+   if [ "${VM}" = "machine" ]; then
+      local MSG="<p><a href=${PROJECT_HOMEPAGE}>${PROJECT_NAME}</a> is a research project.</p>"
    else
-      local MSG="<p><a href=$PROJECT_HOMEPAGE>$PROJECT_NAME</a> is produced independently of, with no guarantee from, The Tor Project. $PROJECT_NAME is a research project.</p>"
+      local MSG="<p><a href=${PROJECT_HOMEPAGE}>${PROJECT_NAME}</a> is produced independently of, with no guarantee from, The Tor Project. ${PROJECT_NAME} is a research project.</p>"
    fi
 
-   emit_message info "$MSG"
+   emit_message info "${MSG}"
 }

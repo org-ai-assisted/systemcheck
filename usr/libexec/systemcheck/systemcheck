@@ -1,7 +1,8 @@
-#!/bin/bash
+#!/bin/bash -e
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## runtime globals (output_x/output_opts/silent/PROGRESS_MAIN/progressbaridx/TITLE_X) set by the sourced preparation.bsh / parse_cmd.bsh
 
 ## style-ok: no-strict
 ## style-ok: allow-errexit-toggle
@@ -12,16 +13,24 @@
 ## nounset is likewise unsafe here -- many optional flag variables are read
 ## before being set.
 
+## provides was_executed (source-able: defines functions when sourced,
+## runs systemcheck_main only when executed).
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
+if ! declare -F was_executed >/dev/null; then
+   printf '%s\n' "$0: ERROR: cannot source check_runtime.bsh!" >&2
+   exit 1
+fi
+
+## provides is_whole_number (used by the top-level progress helpers below) and br_add.
+## Sourced at top level so the source-able progress helpers are self-contained when
+## sourced, not only inside systemcheck_main.
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
+
 ## If anyone adds a VPN or something similar to Whonix-Workstation
 ## (i.e. connection scheme: Whonix-Workstation -> Tor -> VPN), he would wonder
 ## why it is not detected.
-
-#set -x
-set -o errexit
-set -o pipefail
-set -o errtrace
-
-#trap 'sleep 1' DEBUG
 
 NOTIFY_MSG="Checking System Status...
 This will happen in the background and will take approximately three minutes..."
@@ -33,225 +42,6 @@ IDENTIFIER="${SCRIPTNAME}"
 
 ## Debugging with bashdb.
 #IDENTIFIER="systemcheck"
-
-bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/wc-test.sh
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
-
-bash -n /usr/libexec/msgcollector/error_handler
-# shellcheck source=../../../../msgcollector/usr/libexec/msgcollector/error_handler
-source /usr/libexec/msgcollector/error_handler
-trap "error_handler" ERR ## /usr/libexec/msgcollector/error_handler
-set +e
-
-bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/light_sleep.bsh
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
-
-bash -n /usr/libexec/msgcollector/msgdispatcher_run_check
-# shellcheck source=../../../../msgcollector/usr/libexec/msgcollector/msgdispatcher_run_check
-source /usr/libexec/msgcollector/msgdispatcher_run_check
-
-bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/tor_enabled_check
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/tor_enabled_check
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/tor_enabled_check
-bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/pkg_manager_running_check
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/pkg_manager_running_check
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/pkg_manager_running_check
-
-bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/has.bsh
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
-
-## provides: is_whole_number
-## provides: br_add
-bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
-
-## systemcheck sourced fragments. These are listed explicitly so they can be
-## sourced by shellcheck. To update, open a terminal in
-## systemcheck/usr/libexec/systemcheck, and run:
-##    for i in *.bsh; do
-##       printf '%s\n' \
-##          "bash -n /usr/libexec/systemcheck/${i}" \
-##          "# shellcheck source=./${i}" \
-##          "source /usr/libexec/systemcheck/${i}"
-##    done
-bash -n /usr/libexec/systemcheck/arg_max.bsh
-# shellcheck source=./arg_max.bsh
-source /usr/libexec/systemcheck/arg_max.bsh
-bash -n /usr/libexec/systemcheck/autostart.bsh
-# shellcheck source=./autostart.bsh
-source /usr/libexec/systemcheck/autostart.bsh
-bash -n /usr/libexec/systemcheck/check_anondate.bsh
-# shellcheck source=./check_anondate.bsh
-source /usr/libexec/systemcheck/check_anondate.bsh
-bash -n /usr/libexec/systemcheck/check_apparmor.bsh
-# shellcheck source=./check_apparmor.bsh
-source /usr/libexec/systemcheck/check_apparmor.bsh
-bash -n /usr/libexec/systemcheck/check_apt_repository.bsh
-# shellcheck source=./check_apt_repository.bsh
-source /usr/libexec/systemcheck/check_apt_repository.bsh
-bash -n /usr/libexec/systemcheck/check_audio.bsh
-# shellcheck source=./check_audio.bsh
-source /usr/libexec/systemcheck/check_audio.bsh
-bash -n /usr/libexec/systemcheck/check_control_port_filter.bsh
-# shellcheck source=./check_control_port_filter.bsh
-source /usr/libexec/systemcheck/check_control_port_filter.bsh
-bash -n /usr/libexec/systemcheck/check_debian_eol.bsh
-# shellcheck source=./check_debian_eol.bsh
-source /usr/libexec/systemcheck/check_debian_eol.bsh
-bash -n /usr/libexec/systemcheck/check_dpkg.bsh
-# shellcheck source=./check_dpkg.bsh
-source /usr/libexec/systemcheck/check_dpkg.bsh
-bash -n /usr/libexec/systemcheck/check_entropy.bsh
-# shellcheck source=./check_entropy.bsh
-source /usr/libexec/systemcheck/check_entropy.bsh
-bash -n /usr/libexec/systemcheck/check_environment_variables.bsh
-# shellcheck source=./check_environment_variables.bsh
-source /usr/libexec/systemcheck/check_environment_variables.bsh
-bash -n /usr/libexec/systemcheck/check_full_disk_encryption.bsh
-# shellcheck source=./check_full_disk_encryption.bsh
-source /usr/libexec/systemcheck/check_full_disk_encryption.bsh
-bash -n /usr/libexec/systemcheck/check_grub_security.bsh
-# shellcheck source=./check_grub_security.bsh
-source /usr/libexec/systemcheck/check_grub_security.bsh
-bash -n /usr/libexec/systemcheck/check_hostname.bsh
-# shellcheck source=./check_hostname.bsh
-source /usr/libexec/systemcheck/check_hostname.bsh
-bash -n /usr/libexec/systemcheck/check_initializer.bsh
-# shellcheck source=./check_initializer.bsh
-source /usr/libexec/systemcheck/check_initializer.bsh
-bash -n /usr/libexec/systemcheck/check_ip_forwarding_disabled.bsh
-# shellcheck source=./check_ip_forwarding_disabled.bsh
-source /usr/libexec/systemcheck/check_ip_forwarding_disabled.bsh
-bash -n /usr/libexec/systemcheck/check_kernel_hardening_cmdline.bsh
-# shellcheck source=./check_kernel_hardening_cmdline.bsh
-source /usr/libexec/systemcheck/check_kernel_hardening_cmdline.bsh
-bash -n /usr/libexec/systemcheck/check_login_security.bsh
-# shellcheck source=./check_login_security.bsh
-source /usr/libexec/systemcheck/check_login_security.bsh
-bash -n /usr/libexec/systemcheck/check_logs.bsh
-# shellcheck source=./check_logs.bsh
-source /usr/libexec/systemcheck/check_logs.bsh
-bash -n /usr/libexec/systemcheck/check_man.bsh
-# shellcheck source=./check_man.bsh
-source /usr/libexec/systemcheck/check_man.bsh
-bash -n /usr/libexec/systemcheck/check_network_interfaces.bsh
-# shellcheck source=./check_network_interfaces.bsh
-source /usr/libexec/systemcheck/check_network_interfaces.bsh
-bash -n /usr/libexec/systemcheck/check_nonfree.bsh
-# shellcheck source=./check_nonfree.bsh
-source /usr/libexec/systemcheck/check_nonfree.bsh
-bash -n /usr/libexec/systemcheck/check_operating_system.bsh
-# shellcheck source=./check_operating_system.bsh
-source /usr/libexec/systemcheck/check_operating_system.bsh
-bash -n /usr/libexec/systemcheck/check_package_manager_running.bsh
-# shellcheck source=./check_package_manager_running.bsh
-source /usr/libexec/systemcheck/check_package_manager_running.bsh
-bash -n /usr/libexec/systemcheck/check_packages.bsh
-# shellcheck source=./check_packages.bsh
-source /usr/libexec/systemcheck/check_packages.bsh
-bash -n /usr/libexec/systemcheck/check_privilege_escalation_tool.bsh
-# shellcheck source=./check_privilege_escalation_tool.bsh
-source /usr/libexec/systemcheck/check_privilege_escalation_tool.bsh
-bash -n /usr/libexec/systemcheck/check_pvclock.bsh
-# shellcheck source=./check_pvclock.bsh
-source /usr/libexec/systemcheck/check_pvclock.bsh
-bash -n /usr/libexec/systemcheck/check_qubes.bsh
-# shellcheck source=./check_qubes.bsh
-source /usr/libexec/systemcheck/check_qubes.bsh
-bash -n /usr/libexec/systemcheck/check_secure_boot.bsh
-# shellcheck source=./check_secure_boot.bsh
-source /usr/libexec/systemcheck/check_secure_boot.bsh
-bash -n /usr/libexec/systemcheck/check_services.bsh
-# shellcheck source=./check_services.bsh
-source /usr/libexec/systemcheck/check_services.bsh
-bash -n /usr/libexec/systemcheck/check_spectre_meltdown.bsh
-# shellcheck source=./check_spectre_meltdown.bsh
-source /usr/libexec/systemcheck/check_spectre_meltdown.bsh
-bash -n /usr/libexec/systemcheck/check_stream_isolation.bsh
-# shellcheck source=./check_stream_isolation.bsh
-source /usr/libexec/systemcheck/check_stream_isolation.bsh
-bash -n /usr/libexec/systemcheck/check_su_access.bsh
-# shellcheck source=./check_su_access.bsh
-source /usr/libexec/systemcheck/check_su_access.bsh
-bash -n /usr/libexec/systemcheck/check_systemd_clock.bsh
-# shellcheck source=./check_systemd_clock.bsh
-source /usr/libexec/systemcheck/check_systemd_clock.bsh
-bash -n /usr/libexec/systemcheck/check_system_ready.bsh
-# shellcheck source=./check_system_ready.bsh
-source /usr/libexec/systemcheck/check_system_ready.bsh
-bash -n /usr/libexec/systemcheck/check_timezone.bsh
-# shellcheck source=./check_timezone.bsh
-source /usr/libexec/systemcheck/check_timezone.bsh
-bash -n /usr/libexec/systemcheck/check_tirdad_module.bsh
-# shellcheck source=./check_tirdad_module.bsh
-source /usr/libexec/systemcheck/check_tirdad_module.bsh
-bash -n /usr/libexec/systemcheck/check_tor_bootstrap.bsh
-# shellcheck source=./check_tor_bootstrap.bsh
-source /usr/libexec/systemcheck/check_tor_bootstrap.bsh
-bash -n /usr/libexec/systemcheck/check_tor_config.bsh
-# shellcheck source=./check_tor_config.bsh
-source /usr/libexec/systemcheck/check_tor_config.bsh
-bash -n /usr/libexec/systemcheck/check_tor_enabled.bsh
-# shellcheck source=./check_tor_enabled.bsh
-source /usr/libexec/systemcheck/check_tor_enabled.bsh
-bash -n /usr/libexec/systemcheck/check_tor_running.bsh
-# shellcheck source=./check_tor_running.bsh
-source /usr/libexec/systemcheck/check_tor_running.bsh
-bash -n /usr/libexec/systemcheck/check_tor_socks_or_trans_port.bsh
-# shellcheck source=./check_tor_socks_or_trans_port.bsh
-source /usr/libexec/systemcheck/check_tor_socks_or_trans_port.bsh
-bash -n /usr/libexec/systemcheck/check_tor_socks_port_reachability.bsh
-# shellcheck source=./check_tor_socks_port_reachability.bsh
-source /usr/libexec/systemcheck/check_tor_socks_port_reachability.bsh
-bash -n /usr/libexec/systemcheck/check_unrestricted_mode_in_template.bsh
-# shellcheck source=./check_unrestricted_mode_in_template.bsh
-source /usr/libexec/systemcheck/check_unrestricted_mode_in_template.bsh
-bash -n /usr/libexec/systemcheck/check_user_sysmaint_split.bsh
-# shellcheck source=./check_user_sysmaint_split.bsh
-source /usr/libexec/systemcheck/check_user_sysmaint_split.bsh
-bash -n /usr/libexec/systemcheck/check_virtualizer.bsh
-# shellcheck source=./check_virtualizer.bsh
-source /usr/libexec/systemcheck/check_virtualizer.bsh
-bash -n /usr/libexec/systemcheck/check_warrant_canary.bsh
-# shellcheck source=./check_warrant_canary.bsh
-source /usr/libexec/systemcheck/check_warrant_canary.bsh
-bash -n /usr/libexec/systemcheck/cleanup.bsh
-# shellcheck source=./cleanup.bsh
-source /usr/libexec/systemcheck/cleanup.bsh
-bash -n /usr/libexec/systemcheck/disclaimer.bsh
-# shellcheck source=./disclaimer.bsh
-source /usr/libexec/systemcheck/disclaimer.bsh
-bash -n /usr/libexec/systemcheck/donate.bsh
-# shellcheck source=./donate.bsh
-source /usr/libexec/systemcheck/donate.bsh
-bash -n /usr/libexec/systemcheck/function_manual_run.bsh
-# shellcheck source=./function_manual_run.bsh
-source /usr/libexec/systemcheck/function_manual_run.bsh
-bash -n /usr/libexec/systemcheck/help_cli.bsh
-# shellcheck source=./help_cli.bsh
-source /usr/libexec/systemcheck/help_cli.bsh
-bash -n /usr/libexec/systemcheck/parse_cmd.bsh
-# shellcheck source=./parse_cmd.bsh
-source /usr/libexec/systemcheck/parse_cmd.bsh
-bash -n /usr/libexec/systemcheck/preparation.bsh
-# shellcheck source=./preparation.bsh
-source /usr/libexec/systemcheck/preparation.bsh
-bash -n /usr/libexec/systemcheck/process_killer_helper.bsh
-# shellcheck source=./process_killer_helper.bsh
-source /usr/libexec/systemcheck/process_killer_helper.bsh
-bash -n /usr/libexec/systemcheck/root_check.bsh
-# shellcheck source=./root_check.bsh
-source /usr/libexec/systemcheck/root_check.bsh
-bash -n /usr/libexec/systemcheck/show_versions.bsh
-# shellcheck source=./show_versions.bsh
-source /usr/libexec/systemcheck/show_versions.bsh
-bash -n /usr/libexec/systemcheck/uwt_tool.bsh
-# shellcheck source=./uwt_tool.bsh
-source /usr/libexec/systemcheck/uwt_tool.bsh
 
 systemcheck_move_progress_bar_to_percent() {
    if [ "${silent}" -ge "3" ]; then
@@ -289,6 +79,233 @@ systemcheck_progress_main_open() {
 }
 
 systemcheck_main() {
+   #set -x
+   set -o errexit
+   set -o pipefail
+   set -o errtrace
+
+   #trap 'sleep 1' DEBUG
+
+   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
+   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/wc-test.sh
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
+
+   bash -n /usr/libexec/msgcollector/error_handler
+   # shellcheck source=../../../../msgcollector/usr/libexec/msgcollector/error_handler
+   source /usr/libexec/msgcollector/error_handler
+   trap "error_handler" ERR ## /usr/libexec/msgcollector/error_handler
+   set +e
+
+   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
+   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/light_sleep.bsh
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
+
+   bash -n /usr/libexec/msgcollector/msgdispatcher_run_check
+   # shellcheck source=../../../../msgcollector/usr/libexec/msgcollector/msgdispatcher_run_check
+   source /usr/libexec/msgcollector/msgdispatcher_run_check
+
+   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/tor_enabled_check
+   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/tor_enabled_check
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/tor_enabled_check
+   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/pkg_manager_running_check
+   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/pkg_manager_running_check
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/pkg_manager_running_check
+
+   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
+   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/has.bsh
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
+
+   bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/try-wait-for-privleap-socket-ready
+   # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/try-wait-for-privleap-socket-ready
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/try-wait-for-privleap-socket-ready
+
+   ## systemcheck sourced fragments. These are listed explicitly so they can be
+   ## sourced by shellcheck. To update, open a terminal in
+   ## systemcheck/usr/libexec/systemcheck, and run:
+   ##    for i in *.bsh; do
+   ##       printf '%s\n' \
+   ##          "bash -n /usr/libexec/systemcheck/${i}" \
+   ##          "# shellcheck source=./${i}" \
+   ##          "source /usr/libexec/systemcheck/${i}"
+   ##    done
+   bash -n /usr/libexec/systemcheck/arg_max.bsh
+   # shellcheck source=./arg_max.bsh
+   source /usr/libexec/systemcheck/arg_max.bsh
+   bash -n /usr/libexec/systemcheck/autostart.bsh
+   # shellcheck source=./autostart.bsh
+   source /usr/libexec/systemcheck/autostart.bsh
+   bash -n /usr/libexec/systemcheck/check_anondate.bsh
+   # shellcheck source=./check_anondate.bsh
+   source /usr/libexec/systemcheck/check_anondate.bsh
+   bash -n /usr/libexec/systemcheck/check_apparmor.bsh
+   # shellcheck source=./check_apparmor.bsh
+   source /usr/libexec/systemcheck/check_apparmor.bsh
+   bash -n /usr/libexec/systemcheck/check_apt_repository.bsh
+   # shellcheck source=./check_apt_repository.bsh
+   source /usr/libexec/systemcheck/check_apt_repository.bsh
+   bash -n /usr/libexec/systemcheck/check_audio.bsh
+   # shellcheck source=./check_audio.bsh
+   source /usr/libexec/systemcheck/check_audio.bsh
+   bash -n /usr/libexec/systemcheck/check_control_port_filter.bsh
+   # shellcheck source=./check_control_port_filter.bsh
+   source /usr/libexec/systemcheck/check_control_port_filter.bsh
+   bash -n /usr/libexec/systemcheck/check_debian_eol.bsh
+   # shellcheck source=./check_debian_eol.bsh
+   source /usr/libexec/systemcheck/check_debian_eol.bsh
+   bash -n /usr/libexec/systemcheck/check_dpkg.bsh
+   # shellcheck source=./check_dpkg.bsh
+   source /usr/libexec/systemcheck/check_dpkg.bsh
+   bash -n /usr/libexec/systemcheck/check_entropy.bsh
+   # shellcheck source=./check_entropy.bsh
+   source /usr/libexec/systemcheck/check_entropy.bsh
+   bash -n /usr/libexec/systemcheck/check_environment_variables.bsh
+   # shellcheck source=./check_environment_variables.bsh
+   source /usr/libexec/systemcheck/check_environment_variables.bsh
+   bash -n /usr/libexec/systemcheck/check_full_disk_encryption.bsh
+   # shellcheck source=./check_full_disk_encryption.bsh
+   source /usr/libexec/systemcheck/check_full_disk_encryption.bsh
+   bash -n /usr/libexec/systemcheck/check_grub_security.bsh
+   # shellcheck source=./check_grub_security.bsh
+   source /usr/libexec/systemcheck/check_grub_security.bsh
+   bash -n /usr/libexec/systemcheck/check_hostname.bsh
+   # shellcheck source=./check_hostname.bsh
+   source /usr/libexec/systemcheck/check_hostname.bsh
+   bash -n /usr/libexec/systemcheck/check_initializer.bsh
+   # shellcheck source=./check_initializer.bsh
+   source /usr/libexec/systemcheck/check_initializer.bsh
+   bash -n /usr/libexec/systemcheck/check_ip_forwarding_disabled.bsh
+   # shellcheck source=./check_ip_forwarding_disabled.bsh
+   source /usr/libexec/systemcheck/check_ip_forwarding_disabled.bsh
+   bash -n /usr/libexec/systemcheck/check_kernel_hardening_cmdline.bsh
+   # shellcheck source=./check_kernel_hardening_cmdline.bsh
+   source /usr/libexec/systemcheck/check_kernel_hardening_cmdline.bsh
+   bash -n /usr/libexec/systemcheck/check_login_security.bsh
+   # shellcheck source=./check_login_security.bsh
+   source /usr/libexec/systemcheck/check_login_security.bsh
+   bash -n /usr/libexec/systemcheck/check_logs.bsh
+   # shellcheck source=./check_logs.bsh
+   source /usr/libexec/systemcheck/check_logs.bsh
+   bash -n /usr/libexec/systemcheck/check_man.bsh
+   # shellcheck source=./check_man.bsh
+   source /usr/libexec/systemcheck/check_man.bsh
+   bash -n /usr/libexec/systemcheck/check_network_interfaces.bsh
+   # shellcheck source=./check_network_interfaces.bsh
+   source /usr/libexec/systemcheck/check_network_interfaces.bsh
+   bash -n /usr/libexec/systemcheck/check_nonfree.bsh
+   # shellcheck source=./check_nonfree.bsh
+   source /usr/libexec/systemcheck/check_nonfree.bsh
+   bash -n /usr/libexec/systemcheck/check_operating_system.bsh
+   # shellcheck source=./check_operating_system.bsh
+   source /usr/libexec/systemcheck/check_operating_system.bsh
+   bash -n /usr/libexec/systemcheck/check_package_manager_running.bsh
+   # shellcheck source=./check_package_manager_running.bsh
+   source /usr/libexec/systemcheck/check_package_manager_running.bsh
+   bash -n /usr/libexec/systemcheck/check_packages.bsh
+   # shellcheck source=./check_packages.bsh
+   source /usr/libexec/systemcheck/check_packages.bsh
+   bash -n /usr/libexec/systemcheck/check_privilege_escalation_tool.bsh
+   # shellcheck source=./check_privilege_escalation_tool.bsh
+   source /usr/libexec/systemcheck/check_privilege_escalation_tool.bsh
+   bash -n /usr/libexec/systemcheck/check_pvclock.bsh
+   # shellcheck source=./check_pvclock.bsh
+   source /usr/libexec/systemcheck/check_pvclock.bsh
+   bash -n /usr/libexec/systemcheck/check_qubes.bsh
+   # shellcheck source=./check_qubes.bsh
+   source /usr/libexec/systemcheck/check_qubes.bsh
+   bash -n /usr/libexec/systemcheck/check_secure_boot.bsh
+   # shellcheck source=./check_secure_boot.bsh
+   source /usr/libexec/systemcheck/check_secure_boot.bsh
+   bash -n /usr/libexec/systemcheck/check_services.bsh
+   # shellcheck source=./check_services.bsh
+   source /usr/libexec/systemcheck/check_services.bsh
+   bash -n /usr/libexec/systemcheck/check_spectre_meltdown.bsh
+   # shellcheck source=./check_spectre_meltdown.bsh
+   source /usr/libexec/systemcheck/check_spectre_meltdown.bsh
+   bash -n /usr/libexec/systemcheck/check_stream_isolation.bsh
+   # shellcheck source=./check_stream_isolation.bsh
+   source /usr/libexec/systemcheck/check_stream_isolation.bsh
+   bash -n /usr/libexec/systemcheck/check_su_access.bsh
+   # shellcheck source=./check_su_access.bsh
+   source /usr/libexec/systemcheck/check_su_access.bsh
+   bash -n /usr/libexec/systemcheck/check_systemd_clock.bsh
+   # shellcheck source=./check_systemd_clock.bsh
+   source /usr/libexec/systemcheck/check_systemd_clock.bsh
+   bash -n /usr/libexec/systemcheck/check_system_ready.bsh
+   # shellcheck source=./check_system_ready.bsh
+   source /usr/libexec/systemcheck/check_system_ready.bsh
+   bash -n /usr/libexec/systemcheck/check_tempdir.bsh
+   # shellcheck source=./check_tempdir.bsh
+   source /usr/libexec/systemcheck/check_tempdir.bsh
+   bash -n /usr/libexec/systemcheck/check_timezone.bsh
+   # shellcheck source=./check_timezone.bsh
+   source /usr/libexec/systemcheck/check_timezone.bsh
+   bash -n /usr/libexec/systemcheck/check_tirdad_module.bsh
+   # shellcheck source=./check_tirdad_module.bsh
+   source /usr/libexec/systemcheck/check_tirdad_module.bsh
+   bash -n /usr/libexec/systemcheck/check_tor_bootstrap.bsh
+   # shellcheck source=./check_tor_bootstrap.bsh
+   source /usr/libexec/systemcheck/check_tor_bootstrap.bsh
+   bash -n /usr/libexec/systemcheck/check_tor_config.bsh
+   # shellcheck source=./check_tor_config.bsh
+   source /usr/libexec/systemcheck/check_tor_config.bsh
+   bash -n /usr/libexec/systemcheck/check_tor_enabled.bsh
+   # shellcheck source=./check_tor_enabled.bsh
+   source /usr/libexec/systemcheck/check_tor_enabled.bsh
+   bash -n /usr/libexec/systemcheck/check_tor_running.bsh
+   # shellcheck source=./check_tor_running.bsh
+   source /usr/libexec/systemcheck/check_tor_running.bsh
+   bash -n /usr/libexec/systemcheck/check_tor_socks_or_trans_port.bsh
+   # shellcheck source=./check_tor_socks_or_trans_port.bsh
+   source /usr/libexec/systemcheck/check_tor_socks_or_trans_port.bsh
+   bash -n /usr/libexec/systemcheck/check_tor_socks_port_reachability.bsh
+   # shellcheck source=./check_tor_socks_port_reachability.bsh
+   source /usr/libexec/systemcheck/check_tor_socks_port_reachability.bsh
+   bash -n /usr/libexec/systemcheck/check_unrestricted_mode_in_template.bsh
+   # shellcheck source=./check_unrestricted_mode_in_template.bsh
+   source /usr/libexec/systemcheck/check_unrestricted_mode_in_template.bsh
+   bash -n /usr/libexec/systemcheck/check_user_sysmaint_split.bsh
+   # shellcheck source=./check_user_sysmaint_split.bsh
+   source /usr/libexec/systemcheck/check_user_sysmaint_split.bsh
+   bash -n /usr/libexec/systemcheck/check_virtualizer.bsh
+   # shellcheck source=./check_virtualizer.bsh
+   source /usr/libexec/systemcheck/check_virtualizer.bsh
+   bash -n /usr/libexec/systemcheck/check_warrant_canary.bsh
+   # shellcheck source=./check_warrant_canary.bsh
+   source /usr/libexec/systemcheck/check_warrant_canary.bsh
+   bash -n /usr/libexec/systemcheck/cleanup.bsh
+   # shellcheck source=./cleanup.bsh
+   source /usr/libexec/systemcheck/cleanup.bsh
+   bash -n /usr/libexec/systemcheck/disclaimer.bsh
+   # shellcheck source=./disclaimer.bsh
+   source /usr/libexec/systemcheck/disclaimer.bsh
+   bash -n /usr/libexec/systemcheck/donate.bsh
+   # shellcheck source=./donate.bsh
+   source /usr/libexec/systemcheck/donate.bsh
+   bash -n /usr/libexec/systemcheck/function_manual_run.bsh
+   # shellcheck source=./function_manual_run.bsh
+   source /usr/libexec/systemcheck/function_manual_run.bsh
+   bash -n /usr/libexec/systemcheck/help_cli.bsh
+   # shellcheck source=./help_cli.bsh
+   source /usr/libexec/systemcheck/help_cli.bsh
+   bash -n /usr/libexec/systemcheck/parse_cmd.bsh
+   # shellcheck source=./parse_cmd.bsh
+   source /usr/libexec/systemcheck/parse_cmd.bsh
+   bash -n /usr/libexec/systemcheck/preparation.bsh
+   # shellcheck source=./preparation.bsh
+   source /usr/libexec/systemcheck/preparation.bsh
+   bash -n /usr/libexec/systemcheck/process_killer_helper.bsh
+   # shellcheck source=./process_killer_helper.bsh
+   source /usr/libexec/systemcheck/process_killer_helper.bsh
+   bash -n /usr/libexec/systemcheck/root_check.bsh
+   # shellcheck source=./root_check.bsh
+   source /usr/libexec/systemcheck/root_check.bsh
+   bash -n /usr/libexec/systemcheck/show_versions.bsh
+   # shellcheck source=./show_versions.bsh
+   source /usr/libexec/systemcheck/show_versions.bsh
+   bash -n /usr/libexec/systemcheck/uwt_tool.bsh
+   # shellcheck source=./uwt_tool.bsh
+   source /usr/libexec/systemcheck/uwt_tool.bsh
+
    ## Default optional flag vars (set only conditionally elsewhere) so the
    ## normal path never reads them while unset.
    [ -v verbose ] || verbose=""
@@ -323,6 +340,16 @@ systemcheck_main() {
    systemcheck_run_function show_systemcheck_header ## preparation
    systemcheck_run_function input_notification ## preparation
 
+   ## privleapd's per-user comm socket (/run/privleapd/comm/<uid>) is created out
+   ## of band by leapctl@<uid>.service at login, independently of
+   ## privleapd.service, so it is not guaranteed connectable when systemcheck
+   ## starts (true on a fresh boot and in --autostart, which runs at login). Wait
+   ## for it ONCE here, before any leaprun-based check, so the race does not
+   ## misreport privleap -- and thus Tor state -- as unavailable. Bounded; if
+   ## privleap genuinely never becomes reachable, control falls through to each
+   ## check's existing privleap-unusable diagnosis.
+   try_wait_for_privleap_socket_ready
+
    ## uses network: no
    systemcheck_run_function check_unrestricted_mode_in_template ## check_unrestricted_mode_in_template
 
@@ -334,6 +361,9 @@ systemcheck_main() {
 
    ## uses network: no
    systemcheck_run_function check_environment_variables ## check_environment_variables
+
+   ## uses network: no
+   systemcheck_run_function check_tempdir ## check_tempdir
 
    ## uses network: no
    systemcheck_run_function check_privleap_group_membership ## check_privilege_escalation_tool
@@ -520,6 +550,9 @@ systemcheck_main() {
    systemcheck_run_function cleanup ## cleanup
 }
 
-systemcheck_main "$@"
+## Only auto-run when executed, not when sourced (unit tests source it).
+if was_executed "${BASH_SOURCE[0]}"; then
+   systemcheck_main "$@"
+fi
 
 ## End of systemcheck script.

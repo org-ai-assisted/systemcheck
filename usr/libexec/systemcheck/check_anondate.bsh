@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -38,8 +39,8 @@ check_anondate_do() {
       type=warning
    fi
 
-   if [ ! "$tor_consensus_status" = "none" ]; then
-      if leaprun anondate-${tor_consensus_status}-only-current-time-in-valid-range ; then
+   if [ ! "${tor_consensus_status}" = "none" ]; then
+      if leaprun "anondate-${tor_consensus_status}-only-current-time-in-valid-range" ; then
          current_time_in_valid_range=true
       else
          current_time_in_valid_range=false
@@ -47,9 +48,9 @@ check_anondate_do() {
       fi
    fi
 
-   if [ "$tor_consensus_status" = "verified" ]; then
-      if [ "$current_time_in_valid_range" = "true" ]; then
-         if [ "$verbose" -lt "1" ]; then
+   if [ "${tor_consensus_status}" = "verified" ]; then
+      if [ "${current_time_in_valid_range}" = "true" ]; then
+         if [ "${verbose}" -lt "1" ]; then
             ## Got verified Tor consensus, our time is in the valid range,
             ## running non-verbose, therefore skipping the rest of this test.
             return 0
@@ -59,17 +60,17 @@ check_anondate_do() {
 
    ## Check valid-after, valid-until and middle-range if we got an either
    ## verified or unverified Tor consensus.
-   if [ ! "$tor_consensus_status" = "none" ]; then
-      tor_consensus_valid_after="$(leaprun anondate-${tor_consensus_status}-only-show-valid-after)" || true
-      tor_consensus_valid_after="$(sanitize-string -- 255 "$tor_consensus_valid_after")"
-      tor_consensus_valid_until="$(leaprun anondate-${tor_consensus_status}-only-show-valid-until)" || true
-      tor_consensus_valid_until="$(sanitize-string -- 255 "$tor_consensus_valid_until")"
-      tor_consensus_middle_range="$(leaprun anondate-${tor_consensus_status}-only-show-middle-range)" || true
-      tor_consensus_middle_range="$(sanitize-string -- 255 "$tor_consensus_middle_range")"
-      tor_consensus_user_permission="$(leaprun anondate-${tor_consensus_status}-only-user-permission)" || true
-      tor_consensus_user_permission="$(sanitize-string -- 255 "$tor_consensus_user_permission")"
-      tor_consensus_group_permission="$(leaprun anondate-${tor_consensus_status}-only-group-permission)" || true
-      tor_consensus_group_permission="$(sanitize-string -- 255 "$tor_consensus_group_permission")"
+   if [ ! "${tor_consensus_status}" = "none" ]; then
+      tor_consensus_valid_after="$(leaprun "anondate-${tor_consensus_status}-only-show-valid-after")" || true
+      tor_consensus_valid_after="$(sanitize-string -- 255 "${tor_consensus_valid_after}")"
+      tor_consensus_valid_until="$(leaprun "anondate-${tor_consensus_status}-only-show-valid-until")" || true
+      tor_consensus_valid_until="$(sanitize-string -- 255 "${tor_consensus_valid_until}")"
+      tor_consensus_middle_range="$(leaprun "anondate-${tor_consensus_status}-only-show-middle-range")" || true
+      tor_consensus_middle_range="$(sanitize-string -- 255 "${tor_consensus_middle_range}")"
+      tor_consensus_user_permission="$(leaprun "anondate-${tor_consensus_status}-only-user-permission")" || true
+      tor_consensus_user_permission="$(sanitize-string -- 255 "${tor_consensus_user_permission}")"
+      tor_consensus_group_permission="$(leaprun "anondate-${tor_consensus_status}-only-group-permission")" || true
+      tor_consensus_group_permission="$(sanitize-string -- 255 "${tor_consensus_group_permission}")"
    fi
 
    if tor_cert_lifetime_output="$(leaprun anondate-tor-cert-lifetime-valid)" ; then
@@ -84,37 +85,37 @@ check_anondate_do() {
    current_time_short="$(date -u '+%d/%m/%Y %H:%M:%S')"
    current_time_torish="$(date -u '+%Y-%m-%d %H:%M:%S')"
 
-   if [ ! "$tor_consensus_middle_range" = "" ]; then
-      anondate_suggested_date="$tor_consensus_middle_range"
-   elif [ ! "$tor_cert_valid_after" = "" ]; then
-      anondate_suggested_date="$tor_cert_valid_after"
+   if [ ! "${tor_consensus_middle_range}" = "" ]; then
+      anondate_suggested_date="${tor_consensus_middle_range}"
+   elif [ ! "${tor_cert_valid_after}" = "" ]; then
+      anondate_suggested_date="${tor_cert_valid_after}"
    else
-      anondate_suggested_date="$current_time_in_utc"
+      anondate_suggested_date="${current_time_in_utc}"
    fi
 
-   if [ ! "$tor_consensus_status" = "none" ]; then
+   if [ ! "${tor_consensus_status}" = "none" ]; then
       permission_expected="debian-tor"
-      if [ ! "$tor_consensus_user_permission" = "$permission_expected" ] || [ ! "$tor_consensus_group_permission" = "$permission_expected" ]; then
+      if [ ! "${tor_consensus_user_permission}" = "${permission_expected}" ] || [ ! "${tor_consensus_group_permission}" = "${permission_expected}" ]; then
 
          local MSG="<p>Tor Folder Test Result: faulty permissions.
    <br/>
-   <br/>user : <code>$tor_consensus_user_permission</code> (expected: <code>$permission_expected</code>)
-   <br/>group: <code>$tor_consensus_group_permission</code> (expected: <code>$permission_expected</code>)
+   <br/>user : <code>${tor_consensus_user_permission}</code> (expected: <code>${permission_expected}</code>)
+   <br/>group: <code>${tor_consensus_group_permission}</code> (expected: <code>${permission_expected}</code>)
    <br/>
    <br/>To fix this.
-   <br/>1. Open a terminal. ($start_menu_instructions_system_first_part Terminal)
-   <br/>2. Run. <blockquote><code>sudo chown --recursive $permission_expected:$permission_expected /var/lib/tor</code></blockquote></p>"
+   <br/>1. Open a terminal. (${start_menu_instructions_system_first_part} Terminal)
+   <br/>2. Run. <blockquote><code>sudo chown --recursive ${permission_expected}:${permission_expected} /var/lib/tor</code></blockquote></p>"
 
-         emit_message error "$MSG"
+         emit_message error "${MSG}"
          EXIT_CODE="1"
          cleanup "1"
          return 0
       fi
    fi
 
-   if [ "$tor_consensus_status" = "none" ]; then
-      if [ "$tor_cert_lifetime_valid" = "true" ]; then
-         if [ "$verbose" -lt "1" ]; then
+   if [ "${tor_consensus_status}" = "none" ]; then
+      if [ "${tor_cert_lifetime_valid}" = "true" ]; then
+         if [ "${verbose}" -lt "1" ]; then
             ## Got no Tor consensus (yet) but also no Tor invalid certificate
             ## log message. Perhaps Tor or networking is (intentionally)
             ## disabled. Therefore skipping the rest of this test.
@@ -123,31 +124,31 @@ check_anondate_do() {
       fi
    fi
 
-   if [ "$verbose" -ge "1" ]; then
+   if [ "${verbose}" -ge "1" ]; then
       anondate_debugging_information="<p>${FUNCNAME[0]} Debugging information:<br />
 <br />
-tor_consensus_status       : <code>$tor_consensus_status</code><br />
-current_time_in_valid_range: <code>$current_time_in_valid_range</code><br />
+tor_consensus_status       : <code>${tor_consensus_status}</code><br />
+current_time_in_valid_range: <code>${current_time_in_valid_range}</code><br />
 <br />
-current_time_torish        : <code>$current_time_torish</code><br />
-tor_consensus_valid_after  : <code>$tor_consensus_valid_after</code><br />
-tor_consensus_valid_until  : <code>$tor_consensus_valid_until</code><br />
-tor_consensus_middle_range : <code>$tor_consensus_middle_range</code><br />
+current_time_torish        : <code>${current_time_torish}</code><br />
+tor_consensus_valid_after  : <code>${tor_consensus_valid_after}</code><br />
+tor_consensus_valid_until  : <code>${tor_consensus_valid_until}</code><br />
+tor_consensus_middle_range : <code>${tor_consensus_middle_range}</code><br />
 <br />
-tor_cert_lifetime_output   : <code>$tor_cert_lifetime_output</code><br />
-tor_cert_lifetime_valid    : <code>$tor_cert_lifetime_valid</code><br />
-tor_cert_valid_after       : <code>$tor_cert_valid_after</code><br />
+tor_cert_lifetime_output   : <code>${tor_cert_lifetime_output}</code><br />
+tor_cert_lifetime_valid    : <code>${tor_cert_lifetime_valid}</code><br />
+tor_cert_valid_after       : <code>${tor_cert_valid_after}</code><br />
 <br />
-tor_consensus_user_permission : <code>$tor_consensus_user_permission</code><br />
-tor_consensus_group_permission: <code>$tor_consensus_group_permission</code><br /></p>"
+tor_consensus_user_permission : <code>${tor_consensus_user_permission}</code><br />
+tor_consensus_group_permission: <code>${tor_consensus_group_permission}</code><br /></p>"
    fi
 
    anondate_issue="<br/>- Tor needs a reasonable correct time to be able to connect."
 
-   anondate_recommendation="<p>Please check, that the time inside this virtual machine (<code>$current_time_short</code>) is correct. (A clock that
+   anondate_recommendation="<p>Please check, that the time inside this virtual machine (<code>${current_time_short}</code>) is correct. (A clock that
 is slow or fast up to 30 minutes is okay.) If the time is incorrect, please manually fix it.
 <br/>
-<br/>1. Open a terminal. ($start_menu_instructions_system_first_part Terminal)
+<br/>1. Open a terminal. (${start_menu_instructions_system_first_part} Terminal)
 <br/>2. Use the manual clock setting tool. <blockquote><code>sudo --set-home clock-random-manual-gui</code></blockquote></p>"
 }
 
@@ -161,12 +162,12 @@ check_anondate_show() {
       return 0
    fi
 
-   if [ "$verbose" -ge "1" ]; then
+   if [ "${verbose}" -ge "1" ]; then
       check_anondate_do
       ## sets: anondate_issue
       ## sets: anondate_recommendation
       ## sets: anondate_debugging_information
-      local MSG="$anondate_debugging_information"
-      emit_message info "$MSG"
+      local MSG="${anondate_debugging_information}"
+      emit_message info "${MSG}"
    fi
 }

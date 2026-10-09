@@ -2,13 +2,14 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 check_apt_repository() {
-   if [ "$silent" -ge "4" ]; then
-      true "silent is $silent. Skipping ${FUNCNAME[0]}."
+   if [ "${silent}" -ge "4" ]; then
+      true "silent is ${silent}. Skipping ${FUNCNAME[0]}."
       return 0
    fi
 
@@ -30,16 +31,16 @@ check_apt_repository() {
 
          local permission_issues_msg
          permission_issues_msg="\
-<p>$PROJECT_NAME APT Repository: File <code>/etc/apt/sources.list.d/derivative.sources</code> exists but is unreadable.
+<p>${PROJECT_NAME} APT Repository: File <code>/etc/apt/sources.list.d/derivative.sources</code> exists but is unreadable.
 Permission issues?
 To fix, try running:
 <blockquote><code>sudo chmod o+r /etc/apt/sources.list.d/derivative.sources</code></blockquote></p>"
 
          local MSG
-         MSG="$permission_issues_msg
-         <p>$if_you_know_what_you_are_doing_msg</p>"
+         MSG="${permission_issues_msg}
+         <p>${if_you_know_what_you_are_doing_msg}</p>"
 
-         emit_message warning "$MSG"
+         emit_message warning "${MSG}"
 
          return 0
       fi
@@ -51,26 +52,26 @@ To fix, try running:
 
    local wiki_trust_link_cli wiki_trust_link_gui
    wiki_trust_link_cli="${PROJECT_HOMEPAGE}/wiki/Trust"
-   wiki_trust_link_gui="$(html_link "$wiki_trust_link_cli" "Trust")"
+   wiki_trust_link_gui="$(html_link "${wiki_trust_link_cli}" "Trust")"
 
    local risk_cli_msg risk_gui_msg
-   risk_cli_msg="Please read $wiki_trust_link_cli to understand the risk."
-   risk_gui_msg="Please read $wiki_trust_link_gui to understand the risk."
+   risk_cli_msg="Please read ${wiki_trust_link_cli} to understand the risk."
+   risk_gui_msg="Please read ${wiki_trust_link_gui} to understand the risk."
 
-   local temp_x_tool="<blockquote>$persistent_changes_start_menu_instructions_first_part Derivative Repository</blockquote>"
+   local temp_x_tool="<blockquote>${persistent_changes_start_menu_instructions_first_part} Derivative Repository</blockquote>"
    local temp_cli_tool="<code><blockquote>sudo repository-dist</blockquote></code>"
 
-   local temp_base_msg_enabled="<p>$PROJECT_NAME APT Repository: <u>Enabled</u>.
-When the $PROJECT_NAME team releases <code>$derivative_codename_uppercase</code> updates,
+   local temp_base_msg_enabled="<p>${PROJECT_NAME} APT Repository: <u>Enabled</u>.
+When the ${PROJECT_NAME} team releases <code>${derivative_codename_uppercase}</code> updates,
 they will be AUTOMATICALLY installed (when you run <code>apt-get dist-upgrade</code>)
 along with updated packages from the Debian team. ${risk_cli_msg} ${risk_gui_msg}
 If you want to change this, use:</p>"
-   local temp_base_msg_disabled="<p>$PROJECT_NAME APT Repository: <u>Disabled</u>.
-When the $PROJECT_NAME team releases an update, it will NOT be installed.
+   local temp_base_msg_disabled="<p>${PROJECT_NAME} APT Repository: <u>Disabled</u>.
+When the ${PROJECT_NAME} team releases an update, it will NOT be installed.
 ${risk_cli_msg} ${risk_gui_msg}
 You are free to manually update from source code.
 If you want to change this, use:</p>"
-   local temp_base_msg_legacy="<p>$PROJECT_NAME APT Repository: <u>Legacy</u>. (<code>release-upgrade</code>d system)<br />
+   local temp_base_msg_legacy="<p>${PROJECT_NAME} APT Repository: <u>Legacy</u>. (<code>release-upgrade</code>d system)<br />
 <br />
 Very minor issue: This system is still using derivative APT sources list file <code>/etc/apt/sources.list.d/derivative.list</code> instead of <code>/etc/apt/sources.list.d/derivative.sources</code>.<br />
 <br />
@@ -79,49 +80,49 @@ To update your derivative APT sources list file to the new format, use:</p>"
    if test -e "/etc/apt/sources.list.d/derivative.list" ; then
       EXIT_CODE="1"
 
-      local MSG="$temp_base_msg_legacy
-    $temp_x_tool
-<p>$if_you_know_what_you_are_doing_msg</p>"
-   MSG="$(printf "%s\n" "$MSG" | str_replace "$risk_cli_msg" "")"
-   $output_x "${output_opts[@]}" --messagex --typex "warning" --message "$MSG"
+      local MSG="${temp_base_msg_legacy}
+    ${temp_x_tool}
+<p>${if_you_know_what_you_are_doing_msg}</p>"
+   MSG="$(printf "%s\n" "${MSG}" | str_replace "${risk_cli_msg}" "")"
+   ${output_x} "${output_opts[@]}" --messagex --typex "warning" --message "${MSG}"
 
-      local MSG="$temp_base_msg_legacy
-    $temp_cli_tool
-<p>$if_you_know_what_you_are_doing_msg</p>"
-   MSG="$(printf "%s\n" "$MSG" | str_replace "$risk_gui_msg" "")"
-$output_cli "${output_opts[@]}" --messagecli --typecli "warning" --message "$MSG"
+      local MSG="${temp_base_msg_legacy}
+    ${temp_cli_tool}
+<p>${if_you_know_what_you_are_doing_msg}</p>"
+   MSG="$(printf "%s\n" "${MSG}" | str_replace "${risk_gui_msg}" "")"
+${output_cli} "${output_opts[@]}" --messagecli --typecli "warning" --message "${MSG}"
 
       return 0
    elif test -r "/etc/apt/sources.list.d/derivative.sources" ; then
-      if [ "$silent" -ge "3" ]; then
-         true "silent is $silent. Not reporting that repository is enabled."
+      if [ "${silent}" -ge "3" ]; then
+         true "silent is ${silent}. Not reporting that repository is enabled."
          return 0
       fi
 
-      local MSG="$temp_base_msg_enabled
-    $temp_x_tool"
-      MSG="$(printf "%s\n" "$MSG" | str_replace "$risk_cli_msg" "")"
-      $output_x "${output_opts[@]}" --messagex --typex "info" --message "$MSG"
+      local MSG="${temp_base_msg_enabled}
+    ${temp_x_tool}"
+      MSG="$(printf "%s\n" "${MSG}" | str_replace "${risk_cli_msg}" "")"
+      ${output_x} "${output_opts[@]}" --messagex --typex "info" --message "${MSG}"
 
-      local MSG="$temp_base_msg_enabled
-    $temp_cli_tool"
-      MSG="$(printf "%s\n" "$MSG" | str_replace "$risk_gui_msg" "")"
-      $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+      local MSG="${temp_base_msg_enabled}
+    ${temp_cli_tool}"
+      MSG="$(printf "%s\n" "${MSG}" | str_replace "${risk_gui_msg}" "")"
+      ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
 
       return 0
    fi
 
    EXIT_CODE="1"
 
-   local MSG="$temp_base_msg_disabled
-    $temp_x_tool
-<p>$if_you_know_what_you_are_doing_msg</p>"
-   MSG="$(printf "%s\n" "$MSG" | str_replace "$risk_cli_msg" "")"
-   $output_x "${output_opts[@]}" --messagex --typex "warning" --message "$MSG"
+   local MSG="${temp_base_msg_disabled}
+    ${temp_x_tool}
+<p>${if_you_know_what_you_are_doing_msg}</p>"
+   MSG="$(printf "%s\n" "${MSG}" | str_replace "${risk_cli_msg}" "")"
+   ${output_x} "${output_opts[@]}" --messagex --typex "warning" --message "${MSG}"
 
-   local MSG="$temp_base_msg_disabled
-    $temp_cli_tool
-<p>$if_you_know_what_you_are_doing_msg</p>"
-   MSG="$(printf "%s\n" "$MSG" | str_replace "$risk_gui_msg" "")"
-$output_cli "${output_opts[@]}" --messagecli --typecli "warning" --message "$MSG"
+   local MSG="${temp_base_msg_disabled}
+    ${temp_cli_tool}
+<p>${if_you_know_what_you_are_doing_msg}</p>"
+   MSG="$(printf "%s\n" "${MSG}" | str_replace "${risk_gui_msg}" "")"
+${output_cli} "${output_opts[@]}" --messagecli --typecli "warning" --message "${MSG}"
 }

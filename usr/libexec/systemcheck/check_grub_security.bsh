@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154  ## globals set by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -12,7 +13,7 @@ check_grub_security() {
       return 0
    fi
 
-   if [ ! "$systemcheck_virtualizer_detected" = "none" ]; then
+   if [ ! "${systemcheck_virtualizer_detected}" = "none" ]; then
       true "VM detected. Skipping ${FUNCNAME[0]}."
       return 0
    fi
@@ -22,15 +23,15 @@ check_grub_security() {
    status_text="GRUB Bootloader Password"
 
    if grub_password_status_check_output="$(leaprun grub-password-status-check 2>&1)"; then
-      emit_status_line info "$status_text" "$link_bootpass" green "Enabled"
+      emit_status_line info "${status_text}" "${link_bootpass}" green "Enabled"
    else
-      emit_status_line info "$status_text" "$link_bootpass" orange "Disabled"
+      emit_status_line info "${status_text}" "${link_bootpass}" orange "Disabled"
    fi
 
-   if [ "$verbose" -ge "1" ]; then
-      grub_password_status_check_output="$(sanitize-string -- 8192 "$grub_password_status_check_output")"
+   if [ "${verbose}" -ge "1" ]; then
+      grub_password_status_check_output="$(sanitize-string -- 8192 "${grub_password_status_check_output}")"
       MSG="<p><code>leaprun grub-password-status-check</code> output:
-<blockquote><code>$grub_password_status_check_output</code></blockquote></p>"
-      emit_message info "$MSG"
+<blockquote><code>${grub_password_status_check_output}</code></blockquote></p>"
+      emit_message info "${MSG}"
    fi
 }

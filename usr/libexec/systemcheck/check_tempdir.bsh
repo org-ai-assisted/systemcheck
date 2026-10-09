@@ -1,0 +1,65 @@
+#!/bin/bash
+
+## Copyright (C) 2025 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
+## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
+
+## style-ok: no-strict
+## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
+
+## style-ok: no-tmp-hardcode - verifies that the temp-dir variables point at
+## the expected per-user directory, so the path must be named literally.
+
+check_tempdir() {
+   ## libpam-tmpdir (pam_tmpdir.so, wired into common-session) gives each login
+   ## session a private temporary directory /tmp/user/<uid> mode 0700 and points
+   ## TMPDIR, TMP, TEMP and TEMPDIR at it. Verify both halves: the four variables
+   ## and the directory's safety. A wrong value means temp files land in a shared
+   ## world-traversable location instead of the private per-user directory.
+   local id_of_user tmpdir_base tmpdir_expected var bad_vars status_text
+   status_text="Temporary Directory Test Result"
+   id_of_user="$(id --user)"
+   tmpdir_base="/tmp/user"
+   tmpdir_expected="${tmpdir_base}/${id_of_user}"
+
+   ## Report only the fixed variable NAMES, never their (user-controlled) values:
+   ## a value is emitted into an HTML message, so an attacker-set TMP could inject
+   ## markup and forge a green result, and an oversized value could exceed
+   ## msgcollector's chunk size and abort the run.
+   bad_vars=""
+   for var in TMPDIR TMP TEMP TEMPDIR; do
+      if [ ! "${!var-}" = "${tmpdir_expected}" ]; then
+         bad_vars="${bad_vars} ${var}"
+      fi
+   done
+   if [ -n "${bad_vars}" ]; then
+      emit_status_line warning "${status_text}" "" orange "Wrong" \
+         "- TMPDIR, TMP, TEMP and TEMPDIR must all be <code>${tmpdir_expected}</code> (set by libpam-tmpdir at login); incorrect:${bad_vars}."
+      EXIT_CODE="1"
+      return 0
+   fi
+
+   ## The base directory must be root-owned and not writable by non-root, or a
+   ## non-root user could rename/swap the per-user directory underneath. stat is
+   ## reached only after the symlink/dir guards pass (|| short-circuits).
+   if test -h "${tmpdir_base}" || ! test -d "${tmpdir_base}" \
+      || [ ! "$(stat --format='%u' -- "${tmpdir_base}")" = '0' ] \
+      || [ "$(( 8#$(stat --format='%a' -- "${tmpdir_base}") & 8#22 ))" -ne 0 ]; then
+      emit_status_line warning "${status_text}" "" orange "Unsafe" \
+         "- the base directory <code>${tmpdir_base}</code> must be a non-symlink directory owned by <code>root</code> and not writable by group or others (libpam-tmpdir creates it mode 0711)."
+      EXIT_CODE="1"
+      return 0
+   fi
+
+   if test -h "${tmpdir_expected}" || ! test -d "${tmpdir_expected}" \
+      || ! test -O "${tmpdir_expected}" \
+      || [ ! "$(stat --format='%a' -- "${tmpdir_expected}")" = '700' ]; then
+      emit_status_line warning "${status_text}" "" orange "Unsafe" \
+         "- <code>${tmpdir_expected}</code> must be a non-symlink directory owned by this account with mode 0700 (provisioned by libpam-tmpdir)."
+      EXIT_CODE="1"
+      return 0
+   fi
+
+   run_if_verbose emit_status_line info "${status_text}" "" green "${status_ok}"
+   return 0
+}

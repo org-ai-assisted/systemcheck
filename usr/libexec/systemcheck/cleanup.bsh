@@ -2,6 +2,7 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
@@ -18,7 +19,7 @@
 ## to manually use apt-get, it would show an error because the apt-get lockfile
 ## would still exist.
 maybe_kill_apt_get_update() {
-   if [ "$apt_get_update_pid" = "" ]; then
+   if [ "${apt_get_update_pid}" = "" ]; then
       ## Pid never set. Either the check_operating_system check has been disabled,
       ## or signal received earlier or this isn't systemcheck. Either way.
       ## Nothing to do.
@@ -28,9 +29,9 @@ maybe_kill_apt_get_update() {
    ## Check if apt-get-update has already terminated.
    local ps_p_exit_code
    ps_p_exit_code="0"
-   ps -p "$apt_get_update_pid" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
+   ps -p "${apt_get_update_pid}" >/dev/null 2>/dev/null || { ps_p_exit_code="$?" ; true; };
 
-   if [ ! "$ps_p_exit_code" = "0" ]; then
+   if [ ! "${ps_p_exit_code}" = "0" ]; then
       ## apt-get-update already terminated, nothing to do.
       return 0
    fi
@@ -44,11 +45,11 @@ maybe_kill_apt_get_update() {
 ## }}
 
 cleanup_files() {
-   if [ "$DEL_TMP" = "false" ]; then
-      echo "$SCRIPTNAME: Not deleting TEMP_DIR: $TEMP_DIR"
+   if [ "${DEL_TMP}" = "false" ]; then
+      printf '%s\n' "${SCRIPTNAME}: Not deleting TEMP_DIR: ${TEMP_DIR}"
    else
-      if [ -d "$TEMP_DIR" ]; then
-         safe-rm --recursive -- "$TEMP_DIR"
+      if [ -d "${TEMP_DIR}" ]; then
+         safe-rm --recursive -- "${TEMP_DIR}"
       fi
    fi
 }
@@ -60,12 +61,12 @@ cleanup_files() {
 
 ex_funct() {
    ## In case parse_cmd failed.
-   [ -n "$output_cli" ] || output_cli="true"
-   [ -n "$output_x" ] || output_x="true"
-   [ -n "$output_general" ] || output_general="true"
+   [ -n "${output_cli}" ] || output_cli="true"
+   [ -n "${output_x}" ] || output_x="true"
+   [ -n "${output_general}" ] || output_general="true"
 
-   if [ ! "$SIGNAL_TYPE" = "NONE" ]; then
-      echo "$SCRIPTNAME: signal $SIGNAL_TYPE received. Cleaning up... Exiting..."
+   if [ ! "${SIGNAL_TYPE}" = "NONE" ]; then
+      printf '%s\n' "${SCRIPTNAME}: signal ${SIGNAL_TYPE} received. Cleaning up... Exiting..."
    fi
 
    ## Deactivate traps, so when pressing ctrl + c several times this won't
@@ -76,11 +77,11 @@ ex_funct() {
 
    maybe_kill_apt_get_update
 
-   if command -v "process_killer_helper" >/dev/null ; then
+   if has "process_killer_helper" ; then
       ## kill $lastpid (if running)
       process_killer_helper
 
-      lastpid="$tail_pid"
+      lastpid="${tail_pid}"
       ## kill $lastpid (if running)
       process_killer_helper
    fi
@@ -91,57 +92,57 @@ ex_funct() {
    ## when the script is terminated very early.
    local command_v_output_exit_code
    command_v_output_exit_code="0"
-   command -v "output_func" >/dev/null || { command_v_output_exit_code="$?" ; true; };
-   if [ "$command_v_output_exit_code" = "0" ]; then
+   has "output_func" || { command_v_output_exit_code="$?" ; true; };
+   if [ "${command_v_output_exit_code}" = "0" ]; then
       local output_status_exit_code
       output_status_exit_code="0"
-      $output_general "${output_opts[@]}" --identifier "$IDENTIFIER" --status --messagecli || { output_status_exit_code="$?" ; true; };
+      ${output_general} "${output_opts[@]}" --identifier "${IDENTIFIER}" --status --messagecli || { output_status_exit_code="$?" ; true; };
 
-      if [ ! "$progressbaridx" = "" ]; then
+      if [ ! "${progressbaridx}" = "" ]; then
          local progress_bar_open
          progress_bar_open="0"
-         $output_general "${output_opts[@]}" --identifier "$IDENTIFIER" --status --progressbaridx "$progressbaridx" --progressbarxprogresstxtexisting || { progress_bar_open="$?" ; true; };
+         ${output_general} "${output_opts[@]}" --identifier "${IDENTIFIER}" --status --progressbaridx "${progressbaridx}" --progressbarxprogresstxtexisting || { progress_bar_open="$?" ; true; };
       fi
 
-      if [ "$SIGNAL_TYPE" = "SIGUSR2" ]; then
+      if [ "${SIGNAL_TYPE}" = "SIGUSR2" ]; then
          true "User most likely pressed cancel button. No need to send progress 100 to close progress bar."
       else
-         if [ "$progress_bar_open" = "0" ]; then
-            $output_x "${output_opts[@]}" --progressbaridx "$progressbaridx" --progressx "100"
+         if [ "${progress_bar_open}" = "0" ]; then
+            ${output_x} "${output_opts[@]}" --progressbaridx "${progressbaridx}" --progressx "100"
          else
             true "No progress bar open. No need to send progress 100 to close progress bar."
          fi
       fi
 
-      $output_x "${output_opts[@]}" --titlex "$TITLE_X"
-      $output_cli "${output_opts[@]}" --titlecli "$TITLE_CLI"
+      ${output_x} "${output_opts[@]}" --titlex "${TITLE_X}"
+      ${output_cli} "${output_opts[@]}" --titlecli "${TITLE_CLI}"
 
-      if [ ! "$SIGNAL_TYPE" = "NONE" ]; then
-         local MSG="<p><b>$SCRIPTNAME aborted!</b> (SIGNAL_TYPE: $SIGNAL_TYPE)</p>"
+      if [ ! "${SIGNAL_TYPE}" = "NONE" ]; then
+         local MSG="<p><b>${SCRIPTNAME} aborted!</b> (SIGNAL_TYPE: ${SIGNAL_TYPE})</p>"
          ## Not adding aborted message to gui output. Caused too much confusion.
          #$output_x "${output_opts[@]}" --messagex --typex "info" --message "$MSG"
-         $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+         ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
       fi
 
-      $output_x "${output_opts[@]}" --messagex --done
-      $output_cli "${output_opts[@]}" --messagecli --done
+      ${output_x} "${output_opts[@]}" --messagex --done
+      ${output_cli} "${output_opts[@]}" --messagecli --done
    else
-      if [ ! "$SIGNAL_TYPE" = "NONE" ]; then
-         local MSG="$SCRIPTNAME aborted! (SIGNAL_TYPE: $SIGNAL_TYPE)"
-         echo "$MSG"
+      if [ ! "${SIGNAL_TYPE}" = "NONE" ]; then
+         local MSG="${SCRIPTNAME} aborted! (SIGNAL_TYPE: ${SIGNAL_TYPE})"
+         printf '%s\n' "${MSG}"
       fi
    fi
 
-   if [ -z "$EXIT_CODE" ] || [ "$EXIT_CODE" = '0' ]; then
+   if [ -z "${EXIT_CODE}" ] || [ "${EXIT_CODE}" = '0' ]; then
       ## 'exit_code' inherited from error_handler
-      if [ -n "$exit_code" ]; then
-         EXIT_CODE="$exit_code"
+      if [ -n "${exit_code}" ]; then
+         EXIT_CODE="${exit_code}"
       else
          EXIT_CODE="0"
       fi
    fi
 
-   exit "$EXIT_CODE"
+   exit "${EXIT_CODE}"
 }
 
 ## }}

@@ -2,19 +2,20 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 check_operating_system() {
-   if [ "$silent" -ge "3" ]; then
-      true "silent is $silent. Skipping ${FUNCNAME[0]}."
+   if [ "${silent}" -ge "3" ]; then
+      true "silent is ${silent}. Skipping ${FUNCNAME[0]}."
       return 0
    fi
 
-   if [ "$systemcheck_external_network_found" = "false" ]; then
+   if [ "${systemcheck_external_network_found}" = "false" ]; then
       local MSG="<p>Debian Package Update Check Result: Skipped. (Because no external network interface detected.)</p>"
-      emit_message info "$MSG"
+      emit_message info "${MSG}"
       return 0
    fi
 
@@ -29,35 +30,35 @@ check_operating_system() {
    ## Running apt-get update as user (non-root).
    ## Depends on exception set in /usr/lib/privleap/conf.d/systemcheck.conf.
    ## Minimal custom script.
-   local MSG="Debian Package Update Check: Checking for software updates via apt-get... $update_documentation_link_cli"
-   $output_cli "${output_opts[@]}" --messagecli --typecli "info" --message "$MSG"
+   local MSG="Debian Package Update Check: Checking for software updates via apt-get... ${update_documentation_link_cli}"
+   ${output_cli} "${output_opts[@]}" --messagecli --typecli "info" --message "${MSG}"
    local apt_get_exit_code
    apt_get_exit_code="0"
 
    ## /usr/libexec/helper-scripts/apt-get-update is timeout protected.
    ## setsid:
    ## https://stackoverflow.com/questions/48029094/sudo-ignores-sigterm-sent-from-same-script
-   if [ "$verbose" -ge "1" ]; then
+   if [ "${verbose}" -ge "1" ]; then
       leaprun apt-get-update &
    else
       leaprun apt-get-update >/dev/null &
    fi
 
    apt_get_update_pid="$!"
-   wait "$apt_get_update_pid" || { apt_get_exit_code="$?" ; true; };
+   wait "${apt_get_update_pid}" || { apt_get_exit_code="$?" ; true; };
    unset apt_get_update_pid
 
-   if [ "$qubes_detected" = "true" ]; then
-      if [ "$qubes_vm_persistence" = "full" ]; then
+   if [ "${qubes_detected}" = "true" ]; then
+      if [ "${qubes_vm_persistence}" = "full" ]; then
          ## Running in either StandaloneVM or TemplateVM.
-         local qubes_update_help="<br/>1. Open a terminal. ($persistent_changes_start_menu_instructions_first_part Terminal)
-<br/>2. Update. <blockquote><code>$update_command</code></blockquote>"
+         local qubes_update_help="<br/>1. Open a terminal. (${persistent_changes_start_menu_instructions_first_part} Terminal)
+<br/>2. Update. <blockquote><code>${update_command}</code></blockquote>"
       else
          ## TemplateBasedVM
-         local qubes_update_help="<br/>1. Open a TemplateVM terminal. ($persistent_changes_start_menu_instructions_first_part Terminal)
-<br/>2. Update. <blockquote><code>$update_command</code></blockquote>
-<br/>3. Shutdown your TemplateVM. (dom0 - Qubes VM Manager - right click '<code>$qubes_base_template</code>' - Shutdown VM)
-<br/>4. Shutdown and restart this TemplateBased <code>$qubes_vm_type</code>. (dom0 - Qubes VM Manager - right click '<code>$qubes_name_of_vm</code>' - Shutdown VM)"
+         local qubes_update_help="<br/>1. Open a TemplateVM terminal. (${persistent_changes_start_menu_instructions_first_part} Terminal)
+<br/>2. Update. <blockquote><code>${update_command}</code></blockquote>
+<br/>3. Shutdown your TemplateVM. (dom0 - Qubes VM Manager - right click '<code>${qubes_base_template}</code>' - Shutdown VM)
+<br/>4. Shutdown and restart this TemplateBased <code>${qubes_vm_type}</code>. (dom0 - Qubes VM Manager - right click '<code>${qubes_name_of_vm}</code>' - Shutdown VM)"
       fi
    fi
 
@@ -66,38 +67,43 @@ check_operating_system() {
    ## - 137 if needed to use kill.
 
    local debugging_information
-   if [ "$apt_get_exit_code" = "124" ] || [ "$apt_get_exit_code" = "137" ]; then
-      debugging_information="(Timeout reached.) (<code>apt-get</code> code: $apt_get_exit_code)"
+   if [ "${apt_get_exit_code}" = "124" ] || [ "${apt_get_exit_code}" = "137" ]; then
+      debugging_information="(Timeout reached.) (<code>apt-get</code> code: ${apt_get_exit_code})"
    else
-      debugging_information="(<code>apt-get</code> code: $apt_get_exit_code)"
+      debugging_information="(<code>apt-get</code> code: ${apt_get_exit_code})"
    fi
 
-   if [ ! "$apt_get_exit_code" = "0" ]; then
-      if [ "$qubes_detected" = "true" ]; then
-         local MSG="<p>$update_documentation_link_x Check Result: <b>Could not check for software updates!</b> $debugging_information
-<br/><u><b>Please manually check inside $update_where.</b></u>
-$qubes_update_help</p>"
+   if [ ! "${apt_get_exit_code}" = "0" ]; then
+      if [ "${qubes_detected}" = "true" ]; then
+         local MSG="<p>${update_documentation_link_x} Check Result: <b>Could not check for software updates!</b> ${debugging_information}
+<br/><u><b>Please manually check inside ${update_where}.</b></u>
+${qubes_update_help}</p>"
       else
-         if [ "$booted_in_sysmaint_session" = 'true' ]; then
-            local MSG="<p>$update_documentation_link_x Check Result: <b>Could not check for software updates!</b> $debugging_information
+         if [ "${booted_in_sysmaint_session}" = 'true' ]; then
+            local MSG="<p>${update_documentation_link_x} Check Result: <b>Could not check for software updates!</b> ${debugging_information}
 <br/>Please manually check:
 <br/>Click on the System Maintenance Panel, then click \"Open Terminal\", then run:
-<code><blockquote>$update_command</blockquote></code></p>"
+<code><blockquote>${update_command}</blockquote></code></p>"
          else
-            if [ "$user_sysmaint_split_installed" = 'true' ]; then
-               local MSG="<p>$update_documentation_link_x Check Result: <b>Could not check for software updates!</b> $debugging_information
+            if [ "${user_sysmaint_split_installed}" = 'true' ]; then
+               local MSG="<p>${update_documentation_link_x} Check Result: <b>Could not check for software updates!</b> ${debugging_information}
 <br/>Please manually check:
 <br/>Reboot into <code>PERSISTENT Mode | SYSMAINT Session | system maintenance tasks</code>, click \"Open Terminal\" in the System Maintenance Panel, and run:
-<code><blockquote>$update_command</blockquote></code></p>"
+<code><blockquote>${update_command}</blockquote></code></p>"
             else
-               local MSG="<p>$update_documentation_link_x Check Result: <b>Could not check for software updates!</b> $debugging_information
+               local MSG="<p>${update_documentation_link_x} Check Result: <b>Could not check for software updates!</b> ${debugging_information}
 <br/>Please manually check:
-<br/>(Open a terminal, $start_menu_instructions_system_first_part Terminal.)
-<code><blockquote>$update_command</blockquote></code></p>"
+<br/>(Open a terminal, ${start_menu_instructions_system_first_part} Terminal.)
+<code><blockquote>${update_command}</blockquote></code></p>"
             fi
          fi
       fi
-      emit_message warning "$MSG"
+      emit_message warning "${MSG}"
+      ## A failed update check is a real finding, not a tolerable one: like every
+      ## other warning it must exit non-zero. The --ci exemption below covers only
+      ## the "packages can be updated" result, never a failure to check at all --
+      ## reporting success when the check could not run would be a false green.
+      EXIT_CODE="1"
       return 0
    fi
 
@@ -105,62 +111,62 @@ $qubes_update_help</p>"
    check_os_exit_code="0"
    ## /usr/libexec/helper-scripts/apt-get-update-simulate is timeout protected.
    check_os_output="$(leaprun apt-get-update-simulate 2>&1)" || { check_os_exit_code="$?" ; true; };
-   check_os_output_show="$(sanitize-string -- 8192 "$check_os_output")"
-   check_os_output_show="$(br_add "$check_os_output_show")"
+   check_os_output_show="$(sanitize-string -- 8192 "${check_os_output}")"
+   check_os_output_show="$(br_add "${check_os_output_show}")"
 
-   if [ "$verbose" -ge "1" ]; then
+   if [ "${verbose}" -ge "1" ]; then
       local MSG="<p><code>apt-get dist-upgrade --simulate</code> output:
-<code><blockquote>$check_os_output_show</blockquote></code></p>"
-      emit_message info "$MSG"
+<code><blockquote>${check_os_output_show}</blockquote></code></p>"
+      emit_message info "${MSG}"
    fi
 
-   if [ ! "$check_os_exit_code" = "0" ]; then
+   if [ ! "${check_os_exit_code}" = "0" ]; then
       local if_you_know_what_you_are_doing_msg
       if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
 
       local debugging_information resolve_attempt_commands
       debugging_information="Debugging information:<br />
-<code>apt-get dist-upgrade --simulate</code> exit code: <code>$check_os_exit_code</code><br />
+<code>apt-get dist-upgrade --simulate</code> exit code: <code>${check_os_exit_code}</code><br />
 <code>apt-get dist-upgrade --simulate</code> output:
 <code><blockquote>
-$check_os_output_show
+${check_os_output_show}
 </blockquote></code>
-$if_you_know_what_you_are_doing_msg"
+${if_you_know_what_you_are_doing_msg}"
       resolve_attempt_commands="<blockquote><code>sudo dpkg --audit</code>
 <br/><code>sudo dpkg --configure -a</code>
 <br/><code>sudo apt-get dist-upgrade</code></blockquote>"
 
-      if [ "$qubes_detected" = "true" ]; then
-         local MSG="<p>$update_documentation_link_x Check Result: Upgrade simulation failed!<br />
+      if [ "${qubes_detected}" = "true" ]; then
+         local MSG="<p>${update_documentation_link_x} Check Result: Upgrade simulation failed!<br />
 
-<br/><b><u>To fix, try running these commands in $update_where.</u></b>
-$resolve_attempt_commands
-$debugging_information</p>"
+<br/><b><u>To fix, try running these commands in ${update_where}.</u></b>
+${resolve_attempt_commands}
+${debugging_information}</p>"
       else
-         if [ "$booted_in_sysmaint_session" = 'true' ]; then
-            local MSG="<p>$update_documentation_link_x Check Result: Upgrade simulation failed!<br />
+         if [ "${booted_in_sysmaint_session}" = 'true' ]; then
+            local MSG="<p>${update_documentation_link_x} Check Result: Upgrade simulation failed!<br />
 <br/><b><u>To fix, try:</u></b>
 <br/>Click on the System Maintenance Panel, then click \"Open Terminal\", then run:
-$resolve_attempt_commands
-$debugging_information</p>"
+${resolve_attempt_commands}
+${debugging_information}</p>"
          else
-            if [ "$user_sysmaint_split_installed" = 'true' ]; then
-               local MSG="<p>$update_documentation_link_x Check Result: Upgrade simulation failed!<br />
+            if [ "${user_sysmaint_split_installed}" = 'true' ]; then
+               local MSG="<p>${update_documentation_link_x} Check Result: Upgrade simulation failed!<br />
 <br/><b><u>To fix, try:</u></b>
 <br/>Reboot into <code>PERSISTENT Mode | SYSMAINT Session | system maintenance tasks</code>, click \"Open Terminal\" in the System Maintenance Panel, and run:
-$resolve_attempt_commands
-$debugging_information</p>"
+${resolve_attempt_commands}
+${debugging_information}</p>"
             else
-               local MSG="<p>$update_documentation_link_x Check Result: Upgrade simulation failed!<br />
+               local MSG="<p>${update_documentation_link_x} Check Result: Upgrade simulation failed!<br />
 <br/><b><u>To fix, try running these commands:</u></b>
-<br/>(Open a terminal, $start_menu_instructions_system_first_part Terminal.)
-$resolve_attempt_commands
-$debugging_information</p>"
+<br/>(Open a terminal, ${start_menu_instructions_system_first_part} Terminal.)
+${resolve_attempt_commands}
+${debugging_information}</p>"
             fi
          fi
       fi
       EXIT_CODE="1"
-      emit_message error "$MSG"
+      emit_message error "${MSG}"
       return 0
    fi
 
@@ -170,66 +176,66 @@ $debugging_information</p>"
    ## number_upgraded="$(echo "$check_os_output" | grep -Po "^\d+ (?=upgraded)")"
    ## because it would break for non-English languages.
 
-   OIFS="$IFS"
+   OIFS="${IFS}"
    IFS='
 '
 
-   for line in $check_os_output; do
-      IFS="$OIFS"
-      true "line: $line"
+   for line in ${check_os_output}; do
+      IFS="${OIFS}"
+      true "line: ${line}"
       first_char="${line:0:1}"
-      if [[ "$first_char" = "" ]]; then
+      if [[ "${first_char}" = "" ]]; then
          continue
       fi
-      if [[ "$first_char" != *[!0-9]* ]]; then
-         true "'$first_char' is strictly numeric."
-         read -r number_upgraded _ <<< "$line"
-         true "number_upgraded: $number_upgraded"
+      if [[ "${first_char}" != *[!0-9]* ]]; then
+         true "'${first_char}' is strictly numeric."
+         read -r number_upgraded _ <<< "${line}"
+         true "number_upgraded: ${number_upgraded}"
          break
       fi
    done
 
-   IFS="$OIFS"
+   IFS="${OIFS}"
 
    ## Example number_upgraded:
    ## 55
 
-   if [ "$number_upgraded" = "0" ]; then
-      local MSG="<p>$update_documentation_link_x Check Result: <u>No updates</u> found via <code>apt-get</code>.</p>"
-      if [ "$silent" -ge "2" ]; then
-         true "silent is $silent. Skipping output."
+   if [ "${number_upgraded}" = "0" ]; then
+      local MSG="<p>${update_documentation_link_x} Check Result: <u>No updates</u> found via <code>apt-get</code>.</p>"
+      if [ "${silent}" -ge "2" ]; then
+         true "silent is ${silent}. Skipping output."
          return 0
       fi
-      emit_message info "$MSG"
+      emit_message info "${MSG}"
       return 0
    fi
 
-   if [ "$qubes_detected" = "true" ]; then
-      local MSG="<p>$update_documentation_link_x Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
-<br/><b><u>Please update $update_where.</u></b>
-$qubes_update_help</p>"
+   if [ "${qubes_detected}" = "true" ]; then
+      local MSG="<p>${update_documentation_link_x} Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
+<br/><b><u>Please update ${update_where}.</u></b>
+${qubes_update_help}</p>"
    else
-      if [ "$booted_in_sysmaint_session" = 'true' ]; then
-         local MSG="<p>$update_documentation_link_x Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
-<br/>Please update $update_where:
+      if [ "${booted_in_sysmaint_session}" = 'true' ]; then
+         local MSG="<p>${update_documentation_link_x} Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
+<br/>Please update ${update_where}:
 <br/>Click on the System Maintenance Panel, and click \"Install Updates\". Alternatively, click \"Open Terminal\" and run:
-<code><blockquote>$update_command</blockquote></code></p>"
+<code><blockquote>${update_command}</blockquote></code></p>"
       else
-         if [ "$user_sysmaint_split_installed" = 'true' ]; then
-            local MSG="<p>$update_documentation_link_x Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
-<br/>Please update $update_where:
+         if [ "${user_sysmaint_split_installed}" = 'true' ]; then
+            local MSG="<p>${update_documentation_link_x} Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
+<br/>Please update ${update_where}:
 <br/>Reboot into <code>PERSISTENT Mode | SYSMAINT Session | system maintenance tasks</code> and click \"Install Updates\" in the System Maintenance Panel."
          else
-            local MSG="<p>$update_documentation_link_x Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
-<br/>Please update $update_where:
-<br/>(Open a terminal, $start_menu_instructions_system_first_part Terminal.)
-<code><blockquote>$update_command</blockquote></code></p>"
+            local MSG="<p>${update_documentation_link_x} Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
+<br/>Please update ${update_where}:
+<br/>(Open a terminal, ${start_menu_instructions_system_first_part} Terminal.)
+<code><blockquote>${update_command}</blockquote></code></p>"
          fi
       fi
    fi
 
-   ## TODO: Does it really make sense to make systemcheck error out because of
-   ## a "warning"?
-   EXIT_CODE="1"
-   emit_message warning "$MSG"
+   ## --ci: "packages can be updated" is a tolerable finding; do not fail the run
+   ## under --ci. Without --ci it still exits non-zero (unchanged behaviour).
+   [ "${ci:-false}" = "true" ] || EXIT_CODE="1"
+   emit_message warning "${MSG}"
 }

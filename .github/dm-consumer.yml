@@ -14,7 +14,14 @@
 ## NOT bubblewrap: the bwrap-isolated scenario tests cannot run on the GHA
 ## runner regardless (the non-root build user's unshare(CLONE_NEWUSER) is
 ## blocked by the kernel's apparmor_restrict_unprivileged_userns LSM, which no
-## container option can relax), so they SkipTest -- installing bwrap would be
-## dead weight. They run locally / in the sandbox, which carries the coverage.
+## container option can relax) -- installing bwrap would be dead weight. They
+## run locally / in the sandbox, which carries the coverage.
 dist-ai-tests:
   helper-scripts: true
+  ## systemcheck-tests-bwrap: the bwrap-isolated scenario cases, split into
+  ## their own sub-suite. Unrunnable here (see above) -- a CI-infra limit, not a
+  ## code gap -- so ONLY that sub-suite is authorized to skip; it surfaces as an
+  ## env-unmet SKIP, never a pass. systemcheck-tests stays strict: any skip
+  ## there fails the run.
+  allow-skip:
+    - systemcheck-tests-bwrap

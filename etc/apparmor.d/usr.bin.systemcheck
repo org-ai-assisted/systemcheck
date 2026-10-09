@@ -328,6 +328,8 @@ include <tunables/global>
   /{,usr/}bin/sdwdate rix,
   /{,usr/}bin/sed rix,
   /{,usr/}bin/setsid mrix,
+  ## helper-scripts use_leaprun.sh privleapd connect probe. socat is a symlink to socat1.
+  /{,usr/}bin/socat{,1} rix,
   /{,usr/}bin/sleep rix,
   /{,usr/}bin/sort rix,
   /{,usr/}bin/spectre-meltdown-checker cux,

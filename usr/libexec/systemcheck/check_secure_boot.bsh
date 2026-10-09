@@ -7,8 +7,10 @@
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
-source /usr/libexec/helper-scripts/secure_boot_enabled_check.bsh
-source /usr/sbin/shim-signed-mok-setup
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/secure_boot_enabled_check.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/secure_boot_enabled_check.bsh
+# shellcheck source=../../../../helper-scripts/usr/sbin/shim-signed-mok-setup
+source "${HELPER_SCRIPTS_PATH:-}"/usr/sbin/shim-signed-mok-setup
 
 systemcheck_autostart_functions+=" check_build_mok_keys "
 

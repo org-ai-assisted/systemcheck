@@ -11,8 +11,10 @@
 
 ## All the security-relevant kernel hardening options that are enabled
 ## unconditionally by security-misc and aren't effectively tested by
-## spectre-meltdown-checker already. Top-level so a test can source this file
-## and read the exact list the check asserts.
+## spectre-meltdown-checker already, one per line. A function, not a global
+## array: the /etc/systemcheck.d/*.conf files sourced before the check runs
+## could otherwise clear the list and turn the check vacuously green. A test
+## sources this file and calls it to read the exact list the check asserts.
 ##
 ## To regenerate/verify this list, cd to the root of security-misc,
 ## then run:
@@ -20,36 +22,39 @@
 ##      etc/default/grub.d/40_kernel_hardening.cfg* \
 ##      etc/default/grub.d/41_recovery_restrict.cfg*
 ## and take the trailing word of every non-commented assignment.
-kernel_hardening_cmdline_tokens=(
-   ## 40_kernel_hardening.cfg
-   'slab_nomerge'
-   'slab_debug=FZ'
-   'init_on_alloc=1'
-   'init_on_free=1'
-   'page_alloc.shuffle=1'
-   'randomize_kstack_offset=on'
-   'vsyscall=none'
-   'debugfs=off'
-   'kfence.sample_interval=100'
-   'vdso32=0'
-   'cfi=kcfi'
-   'ia32_emulation=0'
-   'efi_pstore.pstore_disable=1'
-   'erst_disable'
-   'proc_mem.force_override=ptrace'
-   'amd_iommu=force_isolation'
-   'intel_iommu=on'
-   'iommu=force'
-   'iommu.passthrough=0'
-   'iommu.strict=1'
-   'efi=disable_early_pci_dma'
-   'random.trust_cpu=off'
-   'random.trust_bootloader=off'
-   'extra_latent_entropy'
-   ## 41_recovery_restrict.cfg
-   'rd.emergency=halt'
-   'rd.shell=0'
-)
+kernel_hardening_cmdline_tokens() {
+   local -a tokens=(
+      ## 40_kernel_hardening.cfg
+      'slab_nomerge'
+      'slab_debug=FZ'
+      'init_on_alloc=1'
+      'init_on_free=1'
+      'page_alloc.shuffle=1'
+      'randomize_kstack_offset=on'
+      'vsyscall=none'
+      'debugfs=off'
+      'kfence.sample_interval=100'
+      'vdso32=0'
+      'cfi=kcfi'
+      'ia32_emulation=0'
+      'efi_pstore.pstore_disable=1'
+      'erst_disable'
+      'proc_mem.force_override=ptrace'
+      'amd_iommu=force_isolation'
+      'intel_iommu=on'
+      'iommu=force'
+      'iommu.passthrough=0'
+      'iommu.strict=1'
+      'efi=disable_early_pci_dma'
+      'random.trust_cpu=off'
+      'random.trust_bootloader=off'
+      'extra_latent_entropy'
+      ## 41_recovery_restrict.cfg
+      'rd.emergency=halt'
+      'rd.shell=0'
+   )
+   printf '%s\n' "${tokens[@]}"
+}
 
 check_kernel_hardening_cmdline() {
    local status_text
@@ -92,7 +97,9 @@ check_kernel_hardening_cmdline() {
 
    local -a missing_tokens=()
    local token token_key token_value
-   for token in "${kernel_hardening_cmdline_tokens[@]}"; do
+   local -a hardening_tokens
+   mapfile -t hardening_tokens < <(kernel_hardening_cmdline_tokens)
+   for token in "${hardening_tokens[@]}"; do
       case "${token}" in
          *=*)
             token_key="${token%%=*}"

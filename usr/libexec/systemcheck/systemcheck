@@ -179,6 +179,9 @@ systemcheck_main() {
    bash -n /usr/libexec/systemcheck/check_kernel_hardening_cmdline.bsh
    # shellcheck source=./check_kernel_hardening_cmdline.bsh
    source /usr/libexec/systemcheck/check_kernel_hardening_cmdline.bsh
+   bash -n /usr/libexec/systemcheck/check_live_persistence.bsh
+   # shellcheck source=./check_live_persistence.bsh
+   source /usr/libexec/systemcheck/check_live_persistence.bsh
    bash -n /usr/libexec/systemcheck/check_login_security.bsh
    # shellcheck source=./check_login_security.bsh
    source /usr/libexec/systemcheck/check_login_security.bsh
@@ -499,6 +502,10 @@ systemcheck_main() {
 
    ## uses network: no
    systemcheck_run_function check_kernel_hardening_cmdline ## check_kernel_hardening_cmdline
+   systemcheck_progress_main_increment "1"
+
+   ## uses network: no
+   systemcheck_run_function check_live_persistence ## check_live_persistence
    systemcheck_progress_main_increment "1"
 
    ## uses network: no

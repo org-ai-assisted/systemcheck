@@ -282,18 +282,27 @@ check_journal() {
       MSG="<p>systemd journal check result: <b>Could not read the systemd journal</b> (read failed with exit code ${journal_read_rc}).
 <br />
 <br />Some journal-based checks could not be completed, so this is NOT a clean result. A denied privilege (privleap), a broken <code>journalctl</code>, or a corrupted journal can cause this. Any messages still detected are shown below.</p>"
-      ## Surface the ACTUAL error the read emitted (leaprun / journalctl stderr), so the page
-      ## names the cause (denied privleap action, journalctl error, ...) instead of only the
-      ## generic "could not read". Untrusted stderr -> HTML-neutralize via sanitize-string
-      ## (same treatment as the firewall-journal output below) before embedding.
+      ## Surface the ACTUAL error the read emitted, so the page names the cause (denied
+      ## privleap action, broken journalctl, corrupt journal) instead of only the generic
+      ## "could not read". The error arrives on EITHER stream: leaprun's OWN failure (e.g. a
+      ## privleapd connect error) is on stderr (journal_read_err); a failure INSIDE log-checker
+      ## is on STDOUT -- log-checker runs 'exec 2>&1', folding its stderr into the captured
+      ## log_output/critical_output and leaving journal_read_err empty. Prefer the stderr
+      ## detail, else fall back to the captured stdout so the in-log-checker cause is still
+      ## named. Untrusted -> HTML-neutralize via sanitize-string before embedding.
+      local journal_read_detail="${journal_read_err}"
+      if [ -z "${journal_read_detail}" ]; then
+         journal_read_detail="${log_output}"
+         [ -n "${journal_read_detail}" ] || journal_read_detail="${critical_output}"
+      fi
       local journal_read_err_html=""
-      if [ -n "${journal_read_err}" ]; then
+      if [ -n "${journal_read_detail}" ]; then
          ## Best-effort: a sanitize-string hiccup must never suppress the warning itself.
-         journal_read_err_html="$(sanitize-string -- 4096 "${journal_read_err}" 2>/dev/null || true)"
+         journal_read_err_html="$(sanitize-string -- 4096 "${journal_read_detail}" 2>/dev/null || true)"
       fi
       if [ -n "${journal_read_err_html}" ]; then
          MSG="${MSG}
-<p>Error detail (journal-read stderr):<br /><code>${journal_read_err_html}</code></p>"
+<p>Error detail (journal-read output):<br /><code>${journal_read_err_html}</code></p>"
       fi
       emit_message warning "${MSG}"
    fi

@@ -11,10 +11,6 @@
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
-## Sets live_status_persistence_requested + live_status_persistence_active.
-# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/live-mode.sh
-source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/live-mode.sh
-
 ## Run at graphical login too: a user who booted the 'Persistent' entry but ended
 ## up amnesic must be told BEFORE they trust the session with data.
 systemcheck_autostart_functions+=" check_live_persistence "
@@ -31,13 +27,21 @@ check_live_persistence() {
     return 0
   fi
 
+  ## Compute the live-persistence state FRESH here (not at fragment-source time):
+  ## live-mode.sh re-derives live_status_persistence_requested/_active from
+  ## /proc/cmdline + /run/overlayfs, overwriting any ambient or config-file value,
+  ## and the ':-false' defaults fail safe (no warning, no nounset crash) against an
+  ## older live-mode.sh that predates these variables.
+  # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/live-mode.sh
+  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/live-mode.sh
+
   ## Not a persistent-live boot: nothing to warn about (amnesic live and installed
   ## systems are expected states handled elsewhere).
-  if [ "${live_status_persistence_requested}" != 'true' ]; then
+  if [ "${live_status_persistence_requested:-false}" != 'true' ]; then
     return 0
   fi
 
-  if [ "${live_status_persistence_active}" = 'true' ]; then
+  if [ "${live_status_persistence_active:-false}" = 'true' ]; then
     local MSG_OK="<p>${status_text}: persistent overlay active, ${status_ok}</p>"
     run_if_verbose emit_message info "${MSG_OK}"
     return 0
@@ -48,8 +52,8 @@ check_live_persistence() {
 session is running <b>amnesic</b>: <u>all changes will be lost on reboot</u>.</p>
 <p>Most likely the persistence disk is missing, or it has not been provisioned yet.
 In a live session, provision a second disk with <code>sudo persistence-setup</code>,
-then reboot into the <b>Persistent</b> submenu. If the disk is LUKS-encrypted, enter
-its passphrase when prompted in early boot.</p>"
+then reboot into the <b>Persistent</b> submenu. For a LUKS-encrypted disk, append the
+<code>rd.luks.uuid=</code> line persistence-setup printed to the entry (GRUB 'e').</p>"
   ${output_x} "${output_opts[@]}" --messagex --typex "warning" --message "${MSG}"
 
   MSG_CLI="${status_text}: running amnesic.

@@ -52,8 +52,8 @@ check_live_persistence() {
 session is running <b>amnesic</b>: <u>all changes will be lost on reboot</u>.</p>
 <p>Most likely the persistence disk is missing, or it has not been provisioned yet.
 In a live session, provision a second disk with <code>sudo persistence-setup</code>,
-then reboot into the <b>Persistent</b> submenu. For a LUKS-encrypted disk, append the
-<code>rd.luks.uuid=</code> line persistence-setup printed to the entry (GRUB 'e').</p>"
+then reboot into the <b>Persistent</b> submenu. For a LUKS-encrypted disk, enter the
+passphrase when prompted in early boot.</p>"
   ${output_x} "${output_opts[@]}" --messagex --typex "warning" --message "${MSG}"
 
   MSG_CLI="${status_text}: running amnesic.

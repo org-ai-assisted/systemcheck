@@ -2,14 +2,16 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
-# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
+
+## Globals are set and consumed by 'systemcheck'.
+# shellcheck disable=SC2154,SC2034
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 # shellcheck source=./uwt_tool.bsh
 source "${SYSTEMCHECK_REPO:-}"/usr/libexec/systemcheck/uwt_tool.bsh
-## Provides check_secure_boot_enabled, used by the modules-load tolerance helper.
+## Provides check_secure_boot_enabled
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/secure_boot_enabled_check.bsh
 source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/secure_boot_enabled_check.bsh
 
@@ -32,108 +34,64 @@ run_if_verbose() {
    fi
 }
 
-## True iff the ONLY reason the system is degraded via systemd-modules-load is
-## that the unsigned, out-of-tree 'tirdad' module was rejected under Secure Boot.
-## NARROW BY DESIGN -- every one of these must hold:
-##   * systemd-modules-load.service is actually failed,
-##   * Secure Boot is enabled,
-##   * 'tirdad' is the SOLE modules-load.d module that is not currently loaded.
-## A jitterentropy_rng (or any other) module that failed to load leaves a second
-## not-loaded module, so the degrade is NOT tolerated -- a real shipped-module
-## load regression is never masked, which is why a blanket ignore of
-## systemd-modules-load.service is unacceptable. Consumed ONLY in --ci mode.
-## Note: a modules-load.d module that is builtin never appears in lsmod and would
-## read as 'not loaded'; on this distribution the shipped modules-load.d modules
-## are real loadable modules, and the fail-safe direction (NOT tolerating) is the
-## safe one.
-##
-## SCOPE (deliberate, matches the operator's modules-load.d spec; the release
-## gate's ISO hits none of these): the predicate keys on modules-load.d
-## membership + Secure Boot being ON, not on parsing systemd-modules-load's
-## failure REASON. So it does not distinguish a Secure Boot key-rejection from a
-## genuinely missing tirdad.ko (check_tirdad_module still reports tirdad absent
-## either way), does not consider kernel 'modules_load=' cmdline entries, and does
-## not apply systemd's same-filename /etc-over-/usr precedence or /dev/null
-## masking (for those the fail-direction is to NOT tolerate -- safe). A user unit
-## coincidentally named systemd-modules-load.service is out of the threat model.
+## Returns true if the only reason the system is degraded by
+## systemd-modules-load is because 'tirdad' couldn't load under Secure Boot.
 systemcheck_modules_load_degrade_is_tirdad_sb_only() {
-   local sb_rc conf mod loaded not_loaded d
-   local -a not_loaded_mods=()
+   local systemctl_units_json systemctl_unit_status_str \
+      systemctl_unit_status_list systemctl_unit_status_line unit_name \
+      unit_status sb_rc modules_load_fail_str modules_load_fail_list \
+      failed_module_name rejected_module_count
 
-   ## systemd-modules-load.service must actually be failed.
-   systemctl is-failed --quiet systemd-modules-load.service || return 1
+   ## No units may have failed except for systemd-modules-load.service, which
+   ## must have failed.
+   systemctl_units_json="$(systemctl list-units --output json --no-pager)"
+   systemctl_unit_status_str="$(jq -r '.[] | .unit + " " + .active' <<< "${systemctl_units_json}")"
+   readarray -t systemctl_unit_status_list <<< "${systemctl_unit_status_str}"
+   ## systemctl unit names do not contain spaces.
+   for systemctl_unit_status_line in "${systemctl_unit_status_list[@]}"; do
+      unit_name="${systemctl_unit_status_line%% *}"
+      unit_status="${systemctl_unit_status_line#* }"
+      if [ "${unit_name}" = 'systemd-modules-load.service' ] \
+         && [ "${unit_status}" != 'failed' ]; then
+         return 1
+      elif [ "${unit_name}" != 'systemd-modules-load.service' ] \
+         && [ "${unit_status}" = 'failed' ]; then
+         return 1
+      fi
+   done
 
-   ## Secure Boot must be enabled. check_secure_boot_enabled is sourced at the
-   ## top of this fragment.
+   ## Secure Boot must be enabled.
    sb_rc=0
    check_secure_boot_enabled >/dev/null 2>&1 || sb_rc="$?"
    [ "${sb_rc}" = "0" ] || return 1
 
-   ## tirdad must be the SOLE not-loaded modules-load.d module. lsmod names use
-   ## underscores, so normalize '-' to '_' when matching. The dir list is an
-   ## overridable test seam (space-separated); unset = the production set.
-   local -a mld_dirs
-   if [ -n "${systemcheck_modules_load_d_dirs:-}" ]; then
-      read -r -a mld_dirs <<< "${systemcheck_modules_load_d_dirs}"
-   else
-      mld_dirs=( \
-         /usr/lib/modules-load.d \
-         /usr/local/lib/modules-load.d \
-         /run/modules-load.d \
-         /etc/modules-load.d \
-      )
-   fi
-   loaded=" $(lsmod | awk 'NR > 1 { print $1 }' | tr '\n' ' ') "
-   shopt -s nullglob
-   for d in "${mld_dirs[@]}"; do
-      for conf in "${d}"/*.conf; do
-         [ -e "${conf}" ] || continue
-         ## '|| [ -n "$mod" ]' processes a final line with no trailing newline.
-         while read -r mod || [ -n "${mod}" ]; do
-            ## modules-load.d: a line whose first non-whitespace character is '#'
-            ## or ';' is a comment; otherwise the entry is the module name.
-            mod="${mod#"${mod%%[![:space:]]*}"}"
-            case "${mod}" in
-               ''|'#'*|';'*)
-                  continue
-                  ;;
-            esac
-            mod="${mod%%[[:space:]]*}"
-            if [[ "${loaded}" != *" ${mod//-/_} "* ]]; then
-               not_loaded_mods+=( "${mod}" )
-            fi
-         done < "${conf}"
-      done
+   ## Tirdad must be the only module that systemd-modules-load failed to load.
+   modules_load_fail_str="$(leaprun log-checker-get-failed-load-modules-list)" || return 1
+   readarray -t modules_load_fail_list <<< "${modules_load_fail_str}"
+
+   for failed_module_name in "${modules_load_fail_list[@]}"; do
+      if [ "${failed_module_name}" != 'tirdad' ]; then
+         return 1
+      fi
    done
 
-   not_loaded=""
-   if [ "${#not_loaded_mods[@]}" -gt 0 ]; then
-      not_loaded="$(printf '%s\n' "${not_loaded_mods[@]}" | sort --unique | tr '\n' ' ')"
-      not_loaded="${not_loaded## }"
-      not_loaded="${not_loaded%% }"
+   ## All kernel-reported module load failures must be tirdad's fault. Note
+   ## that tirdad can fail to load more than once in the same boot.
+   rejected_module_count="$(leaprun log-checker-get-kernel-module-key-rejected-count)" || return 1
+   if [ "${rejected_module_count}" != "${#modules_load_fail_list[@]}" ]; then
+      return 1
    fi
-   [ "${not_loaded}" = "tirdad" ] || return 1
-   return 0
 }
 
-## In --ci, when systemd-modules-load.service is degraded SOLELY because tirdad
-## was Secure-Boot-rejected, inject that unit AND its journal lines into the
-## existing ignore lists, so the failed-units, system-ready and journal checks all
-## tolerate it through the same machinery as --ignore-failed-unit /
-## --journal-ignore-fixed. MODULE-SPECIFIC: the injection happens only when the
-## helper confirms tirdad is the sole not-loaded module, so a jitterentropy_rng
-## (or any other) failure is never masked. Runs once, from check_system_ready,
-## before check_services / check_journal consume the lists.
+## Ignore systemd-modules-load.service failures if tirdad failing to load under
+## Secure Boot is the only thing causing the system to be degraded.
 systemcheck_modules_load_ci_tolerance() {
-   ## Idempotent: called from BOTH check_system_ready and check_services so the
-   ## tolerance applies no matter which check runs first (or runs alone via
-   ## --function), without appending the journal patterns twice.
-   if [ "${systemcheck_modules_load_ci_tolerance_applied:-no}" = "yes" ]; then
+   if [ "${systemcheck_modules_load_ci_tolerance_applied:-false}" = "true" ]; then
       return 0
    fi
    [ "${ci:-false}" = "true" ] || return 0
    systemcheck_modules_load_degrade_is_tirdad_sb_only || return 0
-   systemcheck_modules_load_ci_tolerance_applied=yes
+   systemcheck_modules_load_ci_tolerance_applied=true
    if [[ " ${systemcheck_ignore_failed_units_cli:-} " != *" systemd-modules-load.service "* ]]; then
       systemcheck_ignore_failed_units_cli="${systemcheck_ignore_failed_units_cli:-} systemd-modules-load.service "
    fi
@@ -153,7 +111,7 @@ source_config() {
             return 1;
          fi
          bash -n "${i}"
-         # shellcheck disable=SC1090  ## dynamic config path from the config-dir loop
+         # shellcheck disable=SC1090
          source "${i}"
    done
 }
@@ -302,23 +260,6 @@ sysmaint_state_detection() {
 }
 
 systemcheck_session_detection() {
-  ## Is the per-user systemd MANAGER reachable? The user-context checks (user units, user
-  ## system-ready) cannot run without a user bus, so with none -- serial console / VBox
-  ## guestcontrol / `su - user` without a PAM/logind session -- they WARN as an ARTIFACT,
-  ## not a real fault. Detect that here so those checks report N/A in that case only.
-  ##
-  ## This is a CONNECTIVITY probe, NOT a health probe: `systemctl --user show` answers rc 0
-  ## whenever the user bus is reachable, INCLUDING a degraded manager with failed units. So a
-  ## real failure on a tty / ssh / graphical login (user manager present, even without a
-  ## graphical-session.target or an inherited DISPLAY) is still caught, never masked -- the
-  ## HARD GUARD. Only a genuinely unreachable user manager sets present=false. The opt-out
-  ## (systemcheck_headless_autoskip) is applied at the CHECK sites, which run AFTER
-  ## source_config, so a /etc/systemcheck.d override is honored (this runs before it).
-  ##
-  ## Journal access (check_journal) goes through privleap, not the user bus. Its
-  ## privleapd-unreachable N/A exception is nonetheless gated on this verdict as headless
-  ## EVIDENCE (present=false), not as the read mechanism: a privleapd failure in a NORMAL
-  ## session (manager present) is a real fault and still warns, never a false green.
   systemcheck_user_manager_present='true'
   if ! systemctl --user show --property=Version >/dev/null 2>&1; then
     systemcheck_user_manager_present='false'
@@ -605,7 +546,7 @@ preparation() {
       if test -f /usr/lib/qubes-whonix/utility_functions.sh ; then
          ## sets: PROXY_SERVER
          ## sets: PROXY_META
-         # shellcheck disable=SC1091  ## qubes-whonix-only file, absent on non-Qubes build host
+         # shellcheck disable=SC1091
          source /usr/lib/qubes-whonix/utility_functions.sh
       else
          PROXY_SERVER='http://127.0.0.1:8082/'

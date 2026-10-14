@@ -22,8 +22,7 @@ for mount_data_line in "${lsblk_all_mount_data[@]}"; do
     continue
   fi
 
-  ## %b decodes lsblk's backslash-escaped multi-mountpoint field into newlines to split.
-  ## style-ok: R-030
+  ## style-ok: R-030 -- %b decodes escapes in lsblk's multi-mountpoint field.
   readarray -t mount_split_list < <(printf '%b\n' "${mount_data_line}")
   for mount_item in "${mount_split_list[@]}"; do
     if [ "${mount_item}" = '/home' ]; then
@@ -34,8 +33,7 @@ for mount_data_line in "${lsblk_all_mount_data[@]}"; do
 done
 
 for crypt_data_line in "${lsblk_crypt_mount_data[@]}"; do
-  ## %b decodes lsblk's backslash-escaped multi-mountpoint field into newlines to split.
-  ## style-ok: R-030
+  ## style-ok: R-030 -- %b decodes escapes in lsblk's multi-mountpoint field.
   readarray -t crypt_mount_split_list < <(printf '%b\n' "${crypt_data_line}")
 
   for crypt_mount_item in "${crypt_mount_split_list[@]}"; do

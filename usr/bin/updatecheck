@@ -2,10 +2,11 @@
 
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
-# shellcheck disable=SC2317  ## functions invoked indirectly (leaprun/coproc callbacks); shellcheck sees them as unreachable
 
-## provides was_executed (direct-run vs sourced); errexit on the shebang makes a
-## failed source here fatal on a direct run and is ignored when sourced.
+## Some functions are invoked indirectly.
+# shellcheck disable=SC2317
+
+## provides was_executed
 # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
 source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
 if ! declare -F was_executed >/dev/null; then
@@ -13,17 +14,20 @@ if ! declare -F was_executed >/dev/null; then
   exit 1
 fi
 
+## Libraries must be sourced unconditionally.
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/light_sleep.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
+## Also sources use_leaprun.sh.
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/pkg_manager_running_check
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/pkg_manager_running_check
+
 system_ready_check_function() {
   system_ready_check_output="$(leaprun system-ready-check 2>&1)"
 }
 
 leaprun_availability_test() {
-  ## sets: use_leaprun
-  #source /usr/libexec/helper-scripts/use_leaprun.sh
-  ## also does source above script
-  # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/pkg_manager_running_check
-  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/pkg_manager_running_check
-
   if [ "${use_leaprun}" = "no" ]; then
     return 1
   fi
@@ -31,7 +35,6 @@ leaprun_availability_test() {
 }
 
 leaprun_check_function() {
-  ## Only the exit code matters; output is intentionally discarded.
   leaprun --check -- apt-get-update >/dev/null 2>&1
 }
 
@@ -98,7 +101,8 @@ close_notification() {
 send_notification_wait_exit() {
   local sleep_milliseconds
   ## 6 hours
-  # shellcheck disable=SC2034  ## feeds the documented (currently disabled) notify-send --expire-time alternative below
+  ## used by the currently disabled notify-send --expire-time alternative below
+  # shellcheck disable=SC2034
   sleep_milliseconds=$(( ${sleep_seconds} * 1000 ))
   ## Debugging.
   #sleep_milliseconds=1000
@@ -152,12 +156,12 @@ Please run systemcheck."
   true "INFO: exec {coproc_stderr_fd}>&-"
   exec {coproc_stderr_fd}>&-
 
-  ## The coproc fds were just closed above; abort if either unexpectedly persists.
   test -e "/proc/$$/fd/${coproc_stdout_fd}" && exit 1
   test -e "/proc/$$/fd/${coproc_stderr_fd}" && exit 1
 
   ## 'coproc' sets variable notify_send_coproc_PID.
-  # shellcheck disable=SC2154  ## set by the 'coproc notify_send' builtin
+  ## TODO: Shellcheck does not recognize this variable being set, report a bug.
+  # shellcheck disable=SC2154
   true "INFO: notify_send_coproc_PID: ${notify_send_coproc_PID}"
   true "INFO: Waiting for notify_send_coproc_PID..."
   wait "${notify_send_coproc_PID}" || true "INFO: coproc exit code: $?"
@@ -207,11 +211,6 @@ main() {
   #set -x
 
   true "$0: START"
-
-  # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/light_sleep.bsh
-  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
-  # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
-  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
 
   if ! [[ -v sleep_seconds ]] || ! is_whole_number "${sleep_seconds}"; then
     sleep_seconds="21600"
@@ -314,23 +313,22 @@ https://www.kicksecure.com/wiki/Systemcheck#updatecheck_for_accounts_other_than_
   (( update_package_count-- ))
 
   if [ "${update_package_count}" = "0" ]; then
-     printf "%s\n" "$0: INFO: No updates available."
-     exit 0
+    printf "%s\n" "$0: INFO: No updates available."
+    exit 0
   fi
 
   update_notify_title='Software updates available'
   update_notify_body="${update_package_count}"
   if (( update_package_count > 1 )); then
-     update_notify_body+=' packages have'
+    update_notify_body+=' packages have'
   else
-     update_notify_body+=' package has'
+    update_notify_body+=' package has'
   fi
   update_notify_body+=' updates available.'
 
   send_notification_wait_exit "${update_notify_title}" "${update_notify_body}" 'yes'
 }
 
-## Only auto-run when executed, not when sourced (unit tests source it).
 if was_executed "${BASH_SOURCE[0]}"; then
   main "$@"
 fi

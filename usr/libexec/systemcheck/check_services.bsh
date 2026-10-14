@@ -2,21 +2,18 @@
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
-# shellcheck disable=SC2154,SC2034  ## globals set and consumed by the sourcing 'systemcheck' orchestrator
+
+## Globals are set and consumed by 'systemcheck'.
+# shellcheck disable=SC2154,SC2034
 
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 check_services_do() {
-   ## The 'user' units query needs a reachable per-user systemd manager. Run headlessly
-   ## (serial console / guestcontrol / `su - user` with no user bus) it has none, so the
-   ## query fails as an ARTIFACT, not a real fault -> report N/A. The 'system' branch is
-   ## unaffected. systemcheck_user_manager_present is a CONNECTIVITY verdict (a degraded but
-   ## reachable manager stays 'true'), so a real failure where the user manager IS present is
-   ## never masked. The opt-out is read HERE (after source_config), so a config override works;
-   ## the defaults keep the check running if neither ran.
+   ## Optionally skip user service checks if we are not running under a proper
+   ## user login or the systemd user manager is otherwise unreachable.
    if [ "${check_type}" = "user" ] \
-      && [ "${systemcheck_headless_autoskip:-true}" = "true" ] \
+      && [ "${systemcheck_nosession_autoskip:-false}" = "true" ] \
       && [ "${systemcheck_user_manager_present:-true}" = "false" ]; then
       local MSG
       MSG="<p>systemd '<u>user</u>' units check result: not applicable (no reachable user systemd manager), ${status_ok}</p>"
@@ -99,9 +96,8 @@ ${if_you_know_what_you_are_doing_msg}</p>"
 }
 
 check_services() {
-   ## Apply the --ci tirdad-under-SecureBoot tolerance here too (idempotent), so a
-   ## standalone 'systemcheck --ci --function check_services' tolerates it even
-   ## without check_system_ready having run.
+   ## In CI, prevent failure if some kernel modules failed to load due to
+   ## Secure Boot.
    systemcheck_modules_load_ci_tolerance
 
    check_type="system"
@@ -231,79 +227,23 @@ check_journal() {
    ## logs for the current boot. To get critical logs from the last boot, we
    ## must check critical logs after getting logs for the last boot.
 
-   ## The contents of these four variables are sanitize-string'd by
-   ## log-checker.
-   ##
-   ## This-boot reads MUST succeed -- the running boot always exists -- so a non-zero
-   ## here is a genuine journal-read failure (privleap denial, broken journalctl, a
-   ## corrupted journal). It must NOT be swallowed into an empty string that then
-   ## reads as a clean journal (false green); it is surfaced below.
+   ## Log output from log-checker has already been suitably sanitized.
    local journal_read_rc=0 journal_read_err="" journal_err_file
    journal_err_file="$(mktemp)"
    log_output="$(leaprun log-checker-check_service_logs_this_boot 2>"${journal_err_file}")" || journal_read_rc="${?}"
    critical_output="$(leaprun log-checker-check_critical_logs 2>>"${journal_err_file}")" || journal_read_rc="${?}"
+   last_boot_log_output="$(leaprun log-checker-check_service_logs_last_boot 2>>"${journal_err_file}")" || journal_read_rc="${?}"
+   last_boot_critical_output="$(leaprun log-checker-check_critical_logs 2>>"${journal_err_file}")" || journal_read_rc="${?}"
    journal_read_err="$(cat -- "${journal_err_file}" 2>/dev/null)"
    safe-rm --force -- "${journal_err_file}"
 
-   ## Last-boot reads may legitimately fail when there is no previous boot (first
-   ## boot, or a volatile / non-persistent journal): 'journalctl --boot=-1' exits
-   ## non-zero with "No journal boot entry found". That is benign, so these stay
-   ## lenient -- and any boot-independent mechanism failure is already caught above.
-   last_boot_log_output="$(leaprun log-checker-check_service_logs_last_boot)" || true
-   last_boot_critical_output="$(leaprun log-checker-check_critical_logs)" || true
-
    if [ "${journal_read_rc}" -ne "0" ]; then
-      ## A privleapd-CONNECT failure (no per-user privleap comm socket at
-      ## /run/privleapd/comm/<uid>) is a benign artifact ONLY in a session-less headless
-      ## context (serial console / guestcontrol / `su - user` with no PAM/logind session),
-      ## where the journal read could not RUN -- NOT a broken or corrupted journal. Report
-      ## N/A only then: require headless EVIDENCE (systemcheck_user_manager_present=false),
-      ## matching the sibling user-units skip above, so a privleapd that is genuinely DOWN in
-      ## a NORMAL session (user manager present) still warns below instead of a false green.
-      ## A GENUINE read failure (privleapd connected, journalctl broke, journal corrupt)
-      ## carries a different error and also warns -- so a real problem is never masked. Gated
-      ## by the opt-out so a site can force the strict result.
-      case "${journal_read_err}" in
-         *"Could not connect to privleapd"*)
-            if [ "${systemcheck_headless_autoskip:-true}" = "true" ] \
-               && [ "${systemcheck_user_manager_present:-true}" = "false" ]; then
-               local MSG_NA="<p>systemd journal check result: not applicable (privleapd unreachable -- no per-user privleap session), ${status_ok}</p>"
-               run_if_verbose emit_message info "${MSG_NA}"
-               return 0
-            fi
-            ;;
-      esac
-      ## Surface the read failure -- never let it pass as a clean journal -- but do
-      ## NOT stop: any critical lines that WERE captured must still be reported by the
-      ## prints below. A this-boot read error must not hide a successfully-read
-      ## last-boot catastrophe, nor a kernel line 'tee'd into the critical file before
-      ## the stream errored mid-way.
+      ## Note that privleapd connection failure is always an error. Broken
+      ## privleapd = tools will break. Tools that run systemcheck without a
+      ## real login must create a privleapd socket manually first. This error
+      ## scenario may be hit even if privleap is working though.
       EXIT_CODE="1"
-      MSG="<p>systemd journal check result: <b>Could not read the systemd journal</b> (read failed with exit code ${journal_read_rc}).
-<br />
-<br />Some journal-based checks could not be completed, so this is NOT a clean result. A denied privilege (privleap), a broken <code>journalctl</code>, or a corrupted journal can cause this. Any messages still detected are shown below.</p>"
-      ## Surface the ACTUAL error the read emitted, so the page names the cause (denied
-      ## privleap action, broken journalctl, corrupt journal) instead of only the generic
-      ## "could not read". The error arrives on EITHER stream: leaprun's OWN failure (e.g. a
-      ## privleapd connect error) is on stderr (journal_read_err); a failure INSIDE log-checker
-      ## is on STDOUT -- log-checker runs 'exec 2>&1', folding its stderr into the captured
-      ## log_output/critical_output and leaving journal_read_err empty. Prefer the stderr
-      ## detail, else fall back to the captured stdout so the in-log-checker cause is still
-      ## named. Untrusted -> HTML-neutralize via sanitize-string before embedding.
-      local journal_read_detail="${journal_read_err}"
-      if [ -z "${journal_read_detail}" ]; then
-         journal_read_detail="${log_output}"
-         [ -n "${journal_read_detail}" ] || journal_read_detail="${critical_output}"
-      fi
-      local journal_read_err_html=""
-      if [ -n "${journal_read_detail}" ]; then
-         ## Best-effort: a sanitize-string hiccup must never suppress the warning itself.
-         journal_read_err_html="$(sanitize-string -- 4096 "${journal_read_detail}" 2>/dev/null || true)"
-      fi
-      if [ -n "${journal_read_err_html}" ]; then
-         MSG="${MSG}
-<p>Error detail (journal-read output):<br /><code>${journal_read_err_html}</code></p>"
-      fi
+      MSG="<p>systemd journal check result: <b>Could not read the systemd journal</b> (read failed with exit code ${journal_read_rc}). Any messages still detected are shown below.</p>"
       emit_message warning "${MSG}"
    fi
 

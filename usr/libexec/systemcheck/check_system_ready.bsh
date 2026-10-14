@@ -15,12 +15,9 @@ check_system_ready_system() {
 }
 
 check_system_ready_user() {
-   ## The user system-ready target needs a reachable per-user systemd manager; with no user
-   ## bus "is-system-running" never reaches 'running' and this WARNs as an ARTIFACT. Report
-   ## N/A only then. systemcheck_user_manager_present is a connectivity verdict (a degraded
-   ## but reachable manager stays 'true'), so a real failure is never masked. The opt-out is
-   ## read HERE (after source_config), so a config override works.
-   if [ "${systemcheck_headless_autoskip:-true}" = "true" ] \
+   ## Optionally skip this check if we are not running under a proper
+   ## user login or the systemd user manager is otherwise unreachable.
+   if [ "${systemcheck_nosession_autoskip:-false}" = "true" ] \
       && [ "${systemcheck_user_manager_present:-true}" = "false" ]; then
       local MSG="<p>System ready check (user) Result: not applicable (no reachable user systemd manager), ${status_ok}</p>"
       run_if_verbose emit_message info "${MSG}"

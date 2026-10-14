@@ -8,10 +8,7 @@
 ## `read-journalctl-logs-last-boot`, and
 ## `read-journalctl-logs-whonix-firewall`.
 
-## provides was_executed. Source-able: functions are defined on source; the
-## strict-mode and execution blocks auto-run ONLY when executed, so a unit test
-## can source this file and call its functions without running it or inheriting
-## strict-mode.
+## provides was_executed
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
 source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
 if ! declare -F was_executed >/dev/null; then
@@ -33,13 +30,6 @@ if was_executed "${BASH_SOURCE[0]}"; then
    ## Redirect all stderr to stdout.
    exec 2>&1
 fi
-
-## pipefail is on. A journal 'grep' legitimately exits non-zero when it matches
-## nothing (e.g. a clean system), which must NOT abort the check, so each grep
-## producer is wrapped in a brace group '{ grep ... || true; } | tee ...' (a
-## group, not a subshell). Other producers are NOT masked: a leaprun journal-read
-## failure or an stcatn format failure is a real error that SHOULD abort (the
-## caller, check_services.bsh, already tolerates a non-zero log-checker).
 
 ## Copied from /usr/libexec/systemcheck/preparation.bsh.
 source_config() {
@@ -68,17 +58,16 @@ prep_temp_dir() {
   TEMP="${TMPDIR}"
   TEMPDIR="${TMPDIR}"
   export TMP TMPDIR TEMP TEMPDIR
-  ## 'mkdir --mode' sets the mode only when CREATING; it does NOT re-apply to an
-  ## already-existing dir. TMPDIR is a fixed path shared across the separate
-  ## (privleap) log-checker invocations, so it cannot be a per-run mktemp dir.
-  ## Therefore verify it is a real directory (not a symlink), owned by this user,
-  ## mode 0700, and refuse otherwise: writing the journal into a pre-created
-  ## world-readable or attacker-owned dir would leak its full contents.
+  ## The directory creation and permission assignment must be done atomically,
+  ## otherwise a TOCTOU vuln may allow arbitrary processes to leak the full
+  ## contents of the journal.
   # shellcheck disable=SC2174
   mkdir --parents --mode=700 -- "${TMPDIR}"
-  if test -h "${TMPDIR}" || ! test -d "${TMPDIR}" || ! test -O "${TMPDIR}" \
-    || [ "$(stat -c '%a' -- "${TMPDIR}")" != '700' ]; then
-    printf '%s\n' "$0: ${FUNCNAME[0]}: ERROR: Temporary directory '${TMPDIR}' is unsafe (must be a non-symlink directory, owned by this user, mode 0700)!"
+  ## The dir may already exist, so make sure it is a non-symlink dir and its
+  ## permissions and ownership are safe.
+  if test -L "${TMPDIR}" || ! test -d "${TMPDIR}" || ! test -O "${TMPDIR}" \
+    || [ "$(stat --format='%a' -- "${TMPDIR}")" != '700' ]; then
+    printf '%s\n' "$0: ${FUNCNAME[0]}: ERROR: Temporary directory '${TMPDIR}' is unsafe!"
     return 1
   fi
   test -w "${TMPDIR}"
@@ -89,21 +78,16 @@ check_service_logs() {
 
   check_boot="${1:-}"
 
-  ## Remove the kernel critical-stream file UP FRONT (TMPDIR is shared across the per-boot
-  ## leap invocations). If a later step aborts under errexit before the capture at the end,
-  ## check_critical_logs then finds NO file rather than a STALE one from a prior boot/run
-  ## (which it would otherwise mislabel as this boot's catastrophes).
   safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
-
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
   touch -- "${TMPDIR}/journalctl_output.txt"
 
-  ## A failed journal read aborts (pipefail); leaprun's stderr is folded into the
-  ## captured output (2>&1) so it is inspected too.
   if [ "${check_boot}" = 'this_boot' ]; then
     leaprun read-journalctl-logs-this-boot 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
   elif [ "${check_boot}" = 'last_boot' ]; then
-    leaprun read-journalctl-logs-last-boot 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
+    ## Absent last boot logs must not be permitted to cause script failure, as
+    ## this would break systemcheck under Qubes OS.
+    { leaprun read-journalctl-logs-last-boot || true; } 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
   else
     printf '%s\n' "$0: ${FUNCNAME[0]}: ERROR: Unrecognized boot identifier '${check_boot}', expected 'this_boot' or 'last_boot'!"
     return 1
@@ -124,11 +108,11 @@ check_service_logs() {
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
 
   ## Output by 'apparmor-info' is already de-duplicated.
-  leaprun read-apparmor-info | tee --append -- "${TMPDIR}/journalctl_matched.txt" >/dev/null
+  ##
+  ## Need to silence non-zero exit code from apparmor-info, as it returns 1
+  ## when "DENIED" messages are found.
+  { leaprun read-apparmor-info || true; } | tee --append -- "${TMPDIR}/journalctl_matched.txt" >/dev/null
 
-  ## No fixed ignore strings -> filter NOTHING: 'grep --fixed-strings' with no
-  ## '-e' pattern treats the file path as the pattern (no file operand) and then
-  ## blocks reading stdin. An empty ignore list legitimately means "ignore nothing".
   if [ "${#journal_ignore_fixed_list[@]}" -gt 0 ]; then
     grep_ignore_fixed_items_command=( grep --invert-match --fixed-strings --ignore-case )
     for journal_ignore_fixed_item in "${journal_ignore_fixed_list[@]}"; do
@@ -142,10 +126,6 @@ check_service_logs() {
 
   safe-rm --force -- "${TMPDIR}/journalctl_matched.txt"
 
-  ## No ignore patterns -> filter NOTHING: a grep with no -e pattern (or an empty
-  ## one) would drop ALL lines and the check would report clean having inspected
-  ## nothing. Each pattern is passed as its own -e (an extended regexp), which ORs
-  ## them exactly like the old '|'-join but needs no command substitution.
   if [ "${#journal_ignore_patterns_list[@]}" -gt 0 ]; then
     grep_ignore_patterns_command=( grep --invert-match --extended-regexp --ignore-case )
     for journal_ignore_pattern_item in "${journal_ignore_patterns_list[@]}"; do
@@ -160,10 +140,6 @@ check_service_logs() {
   ## Neutralize HTML metacharacters in untrusted journal content BEFORE
   ## br_add_to_file bakes in '<br />' tags. This output is later rendered in
   ## the GUI; stcatn (applied afterwards) strips ANSI, not HTML.
-  ##
-  ## Redirect form (not a 'sponge' pipe) so a sanitize-string failure DOES abort
-  ## the script here (it is a single command under errexit), rather than being a
-  ## masked producer like the tolerant journal greps above.
   sanitize-string -- nolimit < "${TMPDIR}/journalctl_match_filtered.txt" > "${TMPDIR}/journalctl_match_filtered.txt.tmp"
   mv -- "${TMPDIR}/journalctl_match_filtered.txt.tmp" "${TMPDIR}/journalctl_match_filtered.txt"
 
@@ -175,81 +151,35 @@ check_service_logs() {
   stcatn "${TMPDIR}/journalctl_match_filtered.txt_br" | sort --unique
   safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt_br"
 
-  ## Kernel-transport journal (journalctl --dmesg, _TRANSPORT=kernel only), captured RAW
-  ## for the always-shown critical tier: check_critical_logs reads this file. Done LAST so
-  ## a failure here cannot suppress the service-log output already emitted above (the file
-  ## was already cleared at the top of this function). Left UN-sanitized on purpose --
-  ## check_critical_logs greps it before neutralizing, so a '<' in one line cannot swallow a
-  ## later catastrophe line. The reader passes '--all' so a catastrophe printk carrying a
-  ## control byte is NOT blanked to '[blob data]' (which would hide it from the grep).
-  ## '2>&1' folds leaprun/journalctl stderr INTO this file (as the service reader does): the
-  ## top-level 'exec 2>&1' would otherwise route it onto this function's STDOUT, AFTER the
-  ## service-log body, where it would show as a spurious journal warning. Folded here it is
-  ## harmless -- the critical grep's 'BUG(:| at )' / hard tokens never match a journalctl
-  ## error string.
+  ## These will later be used by check_critical_logs. Note that these are
+  ## intentionally unsanitized for now and will be sanitized later.
   if [ "${check_boot}" = 'this_boot' ]; then
     leaprun read-journalctl-kernel-logs-this-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
   else
-    leaprun read-journalctl-kernel-logs-last-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+    { leaprun read-journalctl-kernel-logs-last-boot || true; } 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
   fi
 }
 
 check_critical_logs() {
-   local hard_critical raw matched
+   local hard_critical log_file matched
 
-   ## Raw kernel-transport stream written by check_service_logs (journalctl --dmesg via the
-   ## read-journalctl-kernel-logs-* leap actions). _TRANSPORT=kernel guarantees each line
-   ## came from the KERNEL, so no userspace process can HIDE a real kernel catastrophe from
-   ## this tier (the safe direction). It does NOT make the matched TEXT trusted: the kernel
-   ## echoes attacker-controllable strings of any length (a process comm, a USB string
-   ## descriptor, an exec path in a segfault, an audit/apparmor path), so a token below can
-   ## be forged into a FALSE-positive critical. That is a forced false alarm that HIDES
-   ## NOTHING, lower-risk than the prior match on the whole mixed stream, and is accepted:
-   ## narrowing it (anchoring each token to a kernel-subsystem prefix) is open-ended and
-   ## risks missing a real variant, left as a possible follow-up.
-   ## NOTE a failed kernel read surfaces as an EMPTY file -> no critical shown: the same
-   ## silent-on-read-failure behavior as the rest of systemcheck's journal checks.
-   raw="${TMPDIR}/journalctl_kernel.txt"
-   if ! test -e "${raw}"; then
+   log_file="${TMPDIR}/journalctl_kernel.txt"
+   if ! test -e "${log_file}"; then
       return 0
    fi
 
-   ## Kernel catastrophes that are ALWAYS critical ("so bad they must be shown"):
-   ##   hard_critical : Bad RAM / CPU-stall / nouveau-killed.
-   ##   BUG(:| at )   : a kernel BUG:/oops or the BUG()/BUG_ON() form 'kernel BUG at
-   ##                   <file>:<line>!'. Case-SENSITIVE uppercase with a leading non-letter,
-   ##                   so it matches those two real forms but NOT 'debug'/'DEBUG' nor a bare
-   ##                   'BUG' token an unprivileged process can plant in a kernel-echoed path
-   ##                   (e.g. an apparmor-denied 'name="/tmp/BUG"').
-   ## '|| true' keeps a no-match grep from tripping errexit; 'sort --unique' drops the
-   ## overlap when a line matches both arms.
-   ## '--text' is REQUIRED: '--all' delivers raw bytes, and a single NUL anywhere in the
-   ## stream makes GNU grep treat it as BINARY and print 'binary file matches' INSTEAD of the
-   ## catastrophe line -- i.e. it would hide the real line. '--text' forces line-wise text
-   ## matching (the NUL is neutralized to '_' by the tr below).
-   hard_critical='Bad RAM detected|self-detected stall on CPU|nouveau .* channel .* killed!'
+   hard_critical='Bad RAM detected|self-detected stall on CPU| BUG:|nouveau .* channel .* killed!'
    matched="${TMPDIR}/journalctl_kernel_critical.txt"
-   {
-      grep --text --ignore-case --extended-regexp -- "${hard_critical}" "${raw}" || true
-      grep --text --extended-regexp -- '(^|[^A-Za-z])BUG(:| at )' "${raw}" || true
-   } | sort --unique > "${matched}"
+   ## Technically sanitize-string could drop text it doesn't need to if a
+   ## critical line of a kernel log contains '<' and '>' characters, but this
+   ## is very unlikely to happen, and the kinds of logs we search for are
+   ## unlikely to be ones an attacker can influence.
+   { grep --text --ignore-case --extended-regexp -- "${hard_critical}" "${log_file}" || true; } | sort --unique | sanitize-string --no-block -- nolimit > "${matched}"
 
-   ## Render for the GUI with TWO single-pass stages, deliberately NOT the usual helpers:
-   ##   tr -> '_'   neutralizes the HTML metacharacters '<>&' AND every C0 control byte
-   ##               except tab/newline (ESC, BEL, etc. -- '--all' delivers them raw, so this
-   ##               prevents a terminal-escape / blob-hiding injection via attacker-echoed
-   ##               kernel text; this is the char-level neutralization sanitize-string does,
-   ##               WITHOUT its whole-blob '<'-tag deletion that could DROP a later line).
-   ##   sed appends '<br />'   (NOT br_add_to_file, which forks a 'tee' PER LINE).
-   ## Both are single-pass: no deletion, no per-line fork, no line cap -- so nothing can be
-   ## hidden or starved here, and a flood cannot turn rendering into a stall. (A pathological
-   ## multi-MiB forged flood can still hit the GUI message dispatcher's own volume limit
-   ## downstream -- volume bounding, if ever wanted, belongs there, not a cap here that an
-   ## attacker could aim a real catastrophe line past.)
-   tr '<>&\000-\010\013-\037\177' '_' < "${matched}" | sed 's|$|<br />|' > "${matched}_br"
+   br_add_to_file "${matched}"
    stcatn "${matched}_br"
 
-   safe-rm --force -- "${raw}" "${matched}" "${matched}_br"
+   safe-rm --force -- "${log_file}" "${matched}" "${matched}_br"
 }
 
 main() {
@@ -264,6 +194,13 @@ main() {
     check_service_logs "${2:-}"
   elif [ "${check_mode}" = 'check_critical_logs' ]; then
     check_critical_logs
+  elif [ "${check_mode}" = 'get_failed_load_modules_list' ]; then
+    ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 \
+      | sed -n "s/.*Failed to insert module '\(.*\)': Key was rejected by service/\1/p" \
+      | sanitize-string -- nolimit
+  elif [ "${check_mode}" = 'get_kernel_module_key_rejected_count' ]; then
+    ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 \
+      | grep --fixed-strings --count 'kernel: Loading of module with unavailable key is rejected'
   else
     printf '%s\n' "$0: ERROR: Unrecognized mode '${check_mode}' specified!" >&2
     return 1

@@ -58,28 +58,23 @@ ${reason}"
    if [ "${secure_boot_enabled_check_retcode}" = '0' ]; then
       ## Used by 'check_tirdad_module.bsh'.
       secure_boot_status_enabled=true
-      emit_status_line info "Secure Boot" "${link_sb}" green "Enabled"
    elif [ "${secure_boot_enabled_check_retcode}" = '1' ]; then
       secure_boot_status_enabled=false
-      emit_status_line info "Secure Boot" "${link_sb}" orange "Disabled"
    else
       ## Secure Boot state could not be determined. Default the shared flag
       ## (consumed by check_tirdad_module.bsh) to false.
       secure_boot_status_enabled=false
       mokutil_output="$(sanitize-string -- 8192 "${mokutil_output}")"
-      run_if_verbose emit_status_line info "Secure Boot" "${link_sb}" orange "Unknown" "
+      emit_message warning "Unable to detect Secure Boot status!
 
 Debugging information:
 mokutil_output: '${mokutil_output}'"
    fi
 
-   ## Firmware boot lane evidence (BIOS / UEFI / UEFI+SecureBoot). Verbose-only like the
-   ## other sub-status lines, so it never affects the non-verbose check verdict; reuses the
-   ## EFI-dir discriminator (BIOS branch above) and the Secure Boot state computed above.
    if [ "${secure_boot_status_enabled}" = 'true' ]; then
-      run_if_verbose emit_status_line info "Firmware" "${link_sb}" green "UEFI+SecureBoot"
+      run_if_verbose emit_status_line info "Firmware" "${link_sb}" green "UEFI, Secure Boot enabled"
    else
-      run_if_verbose emit_status_line info "Firmware" "${link_sb}" orange "UEFI"
+      run_if_verbose emit_status_line info "Firmware" "${link_sb}" orange "UEFI, Secure Boot disabled"
    fi
 
    if [ "${mokutil_present}" = 'y' ]; then

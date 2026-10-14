@@ -36,12 +36,12 @@ error_handler() {
 }
 
 canary_preparation() {
-   source /usr/libexec/helper-scripts/light_sleep.bsh
-   source /usr/libexec/helper-scripts/live-mode.sh
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/live-mode.sh
    source "${SYSTEMCHECK_REPO:-}/usr/libexec/systemcheck/canary-run-or-not"
 
    ## sets: systemd_notify
-   source /usr/libexec/helper-scripts/systemd-notify.bsh
+   source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/systemd-notify.bsh
 
    ## canary-run-or-not only ever assigns canary_run=false, in the enabled
    ## case it leaves the name unset, so it needs a default.

@@ -38,7 +38,12 @@ IDENTIFIER="${SCRIPTNAME}"
 ## Debugging with bashdb.
 #IDENTIFIER="systemcheck"
 
-## Libraries and snippets must be sourced unconditionally.
+## Libraries, snippets and the ~40 check fragments. Deferred behind was_executed so a
+## bare `source` of this file (the dist-ai sourceable tests) defines the orchestrator
+## functions WITHOUT sourcing the fragments, installing the ERR trap, or any other side
+## effect; only the real execution path (was_executed true) needs them. Matches the
+## cheap, side-effect-free sourceable contract the dist-ai systemcheck suite relies on.
+if was_executed "${BASH_SOURCE[0]}"; then
 
 bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/wc-test.sh
@@ -259,6 +264,8 @@ source /usr/libexec/systemcheck/show_versions.bsh
 bash -n /usr/libexec/systemcheck/uwt_tool.bsh
 # shellcheck source=./uwt_tool.bsh
 source /usr/libexec/systemcheck/uwt_tool.bsh
+
+fi
 
 systemcheck_move_progress_bar_to_percent() {
    if [ "${silent}" -ge "3" ]; then

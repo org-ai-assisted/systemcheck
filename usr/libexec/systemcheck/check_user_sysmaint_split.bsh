@@ -9,6 +9,10 @@
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
+## Grave boot-role mismatch: surfaced even in autostart mode (like
+## check_unrestricted_mode_in_template), not just on a manual run.
+systemcheck_autostart_functions+=" check_user_sysmaint_split_boot_mismatch "
+
 check_user_sysmaint_split() {
    check_user_sysmaint_split_package
    check_user_sysmaint_split_boot_mode
@@ -31,9 +35,36 @@ check_user_sysmaint_split_package() {
 check_user_sysmaint_split_boot_mode() {
    if ! [ "${booted_in_sysmaint_session}" = 'true' ]; then
       MSG="<p>user-sysmaint-split session detection result: USER Session.</p>"
-   else
+   elif in_working_sysmaint_session; then
       MSG="<p>user-sysmaint-split session detection result: SYSMAINT Session.</p>"
+   else
+      ## SYSMAINT requested at boot, but landed on an unprivileged account.
+      ## check_user_sysmaint_split_boot_mismatch raises the grave popup; keep
+      ## this result line honest rather than claiming a SYSMAINT Session.
+      MSG="<p>user-sysmaint-split session detection result: SYSMAINT Session requested at boot, but logged in as standard user <code>${who_ami}</code> instead of the <code>sysmaint</code> account.</p>"
    fi
 
    emit_message info "${MSG}"
+}
+
+check_user_sysmaint_split_boot_mismatch() {
+   ## Grave, easy-to-miss state: SYSMAINT Session was requested at boot
+   ## (kernel parameter 'boot-role=sysmaint'), yet the session landed on an
+   ## unprivileged account rather than 'sysmaint'. The user believes they are
+   ## in a maintenance session, but root / sudo tasks silently will not work.
+   local MSG link_sysmaint
+   link_sysmaint="https://www.kicksecure.com/wiki/sysmaint"
+
+   if [ "${booted_in_sysmaint_session}" != 'true' ]; then
+      return 0
+   fi
+   if in_working_sysmaint_session; then
+      return 0
+   fi
+
+   MSG="<p>You selected <code>SYSMAINT Session</code> at boot, but you are logged in as standard user <code>${who_ami}</code>, not the <code>sysmaint</code> account. Administrative (root / sudo) tasks will NOT work in this session. To perform system maintenance, log out and log back in as the <code>sysmaint</code> user, or reboot and select <code>PERSISTENT Mode | SYSMAINT Session | system maintenance tasks</code>. See <code>${link_sysmaint}</code>.</p>"
+   ${output_x} "${output_opts[@]}" --passivepopupqueuex --passivepopupqueuextitle "${passive_popup_title}" --typex "error" --message "${MSG}" --done
+
+   MSG="You selected 'SYSMAINT Session' at boot, but you are logged in as standard user '${who_ami}', not the 'sysmaint' account. Administrative (root / sudo) tasks will NOT work in this session. To perform system maintenance, log out and log back in as the 'sysmaint' user, or reboot and select 'PERSISTENT Mode | SYSMAINT Session | system maintenance tasks'. See ${link_sysmaint}"
+   ${output_cli} "${output_opts[@]}" --messagecli --typecli "error" --message "${MSG}"
 }

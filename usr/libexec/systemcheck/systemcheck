@@ -353,6 +353,9 @@ systemcheck_main() {
    systemcheck_run_function check_unrestricted_mode_in_template ## check_unrestricted_mode_in_template
 
    ## uses network: no
+   systemcheck_run_function check_user_sysmaint_split_boot_mismatch ## check_user_sysmaint_split
+
+   ## uses network: no
    systemcheck_run_function check_system_ready ## check_system_ready
 
    ## uses network: no

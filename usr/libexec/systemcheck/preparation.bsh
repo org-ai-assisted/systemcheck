@@ -40,25 +40,31 @@ systemcheck_modules_load_degrade_is_tirdad_sb_only() {
    local systemctl_units_json systemctl_unit_status_str \
       systemctl_unit_status_list systemctl_unit_status_line unit_name \
       unit_status sb_rc modules_load_fail_str modules_load_fail_list \
-      failed_module_name rejected_module_count
+      failed_module_name rejected_module_count systemd_modules_load_present
 
    ## No units may have failed except for systemd-modules-load.service, which
    ## must have failed.
-   systemctl_units_json="$(systemctl list-units --output json --no-pager)"
-   systemctl_unit_status_str="$(jq -r '.[] | .unit + " " + .active' <<< "${systemctl_units_json}")"
+   systemctl_units_json="$(systemctl list-units --output json --no-pager)" || return 1
+   systemctl_unit_status_str="$(jq -r '.[] | .unit + " " + .active' <<< "${systemctl_units_json}")" || return 1
    readarray -t systemctl_unit_status_list <<< "${systemctl_unit_status_str}"
+   systemd_modules_load_present='false'
    ## systemctl unit names do not contain spaces.
    for systemctl_unit_status_line in "${systemctl_unit_status_list[@]}"; do
       unit_name="${systemctl_unit_status_line%% *}"
       unit_status="${systemctl_unit_status_line#* }"
-      if [ "${unit_name}" = 'systemd-modules-load.service' ] \
-         && [ "${unit_status}" != 'failed' ]; then
-         return 1
+      if [ "${unit_name}" = 'systemd-modules-load.service' ]; then
+         if [ "${unit_status}" != 'failed' ]; then
+            return 1
+         fi
+         systemd_modules_load_present='true'
       elif [ "${unit_name}" != 'systemd-modules-load.service' ] \
          && [ "${unit_status}" = 'failed' ]; then
          return 1
       fi
    done
+   if [ "${systemd_modules_load_present}" = 'false' ]; then
+      return 1
+   fi
 
    ## Secure Boot must be enabled.
    sb_rc=0

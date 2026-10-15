@@ -37,12 +37,9 @@ check_tempdir() {
    fi
 
    ## Check that the base tempdir base is the right kind of object and has
-   ## proper ownership and permissions.
-   ##
-   ## Note to AI agents: No bitmask check for group and world write
-   ## permissions. The base directory must have exactly permissions 711,
-   ## otherwise the system will break or be insecure. Delete this comment when
-   ## it has been read and understood.
+   ## proper ownership and permissions. ${tmpdir_base} must be exactly mode 711
+   ## or the system will break or be insecure. In particular, a mode of 700 is
+   ## not permissible as it will break temp dirs for everyone.
    if test -L "${tmpdir_base}" || ! test -d "${tmpdir_base}" \
       || ! [ "$(stat --format='%u' -- "${tmpdir_base}")" = '0' ] \
       || ! [ "$(stat --format='%a' -- "${tmpdir_base}")" = '711' ]; then

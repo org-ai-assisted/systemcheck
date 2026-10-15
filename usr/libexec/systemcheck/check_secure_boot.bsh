@@ -39,8 +39,7 @@ check_secure_boot() {
    fi
 
    if ! [ -d /sys/firmware/efi ]; then
-      run_if_verbose emit_status_line info "Firmware" "${link_sb}" orange "BIOS"
-      run_if_verbose emit_status_line info "Secure Boot" "${link_sb}" orange "Unavailable" "
+      run_if_verbose emit_status_line info "Firmware" "${link_sb}" orange "BIOS, Secure Boot unavailable
 
 ${reason}"
       return 0
@@ -65,7 +64,7 @@ ${reason}"
       ## (consumed by check_tirdad_module.bsh) to false.
       secure_boot_status_enabled=false
       mokutil_output="$(sanitize-string -- 8192 "${mokutil_output}")"
-      emit_message warning "Unable to detect Secure Boot status!
+      run_if_verbose emit_message warning "Unable to detect Secure Boot status!
 
 Debugging information:
 mokutil_output: '${mokutil_output}'"

@@ -93,9 +93,6 @@ check_service_logs() {
     return 1
   fi
 
-  ## 'BUG' is word-boundary anchored (like 'fault' below) so it matches real
-  ## kernel reports ('BUG:', 'kernel BUG at') but NOT the substring in words like
-  ## 'debugging'.
   journal_search_pattern_list="SECCOMP.*syscall=|warn|fail|error|ordering cycle|(^|[^a-zA-Z])BUG($|[^a-zA-Z])|segfault|killed|(^|[^a-zA-Z])fault($|[^a-zA-Z])|self-detected stall on CPU"
 
   if test -e /usr/share/qubes/marker-vm; then
@@ -168,7 +165,7 @@ check_critical_logs() {
       return 0
    fi
 
-   hard_critical='Bad RAM detected|self-detected stall on CPU| BUG:|nouveau .* channel .* killed!'
+   hard_critical='Bad RAM detected|self-detected stall on CPU| BUG:|^BUG:|BUG at |BUG at:|nouveau .* channel .* killed!'
    matched="${TMPDIR}/journalctl_kernel_critical.txt"
    ## Technically sanitize-string could drop text it doesn't need to if a
    ## critical line of a kernel log contains '<' and '>' characters, but this
@@ -196,7 +193,7 @@ main() {
     check_critical_logs
   elif [ "${check_mode}" = 'get_failed_load_modules_list' ]; then
     ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 \
-      | sed -n "s/.*Failed to insert module '\(.*\)': Key was rejected by service/\1/p" \
+      | sed -n "s/.*Failed to insert module '\(.*\)':.*/\1/p" \
       | sanitize-string -- nolimit
   elif [ "${check_mode}" = 'get_kernel_module_key_rejected_count' ]; then
     ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 \

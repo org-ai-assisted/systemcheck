@@ -81,7 +81,7 @@ check_operating_system() {
 <br/><u><b>Please manually check inside ${update_where}.</b></u>
 ${qubes_update_help}</p>"
       else
-         if in_working_sysmaint_session; then
+         if running_as_sysmaint; then
             local MSG="<p>${update_documentation_link_x} Check Result: <b>Could not check for software updates!</b> ${debugging_information}
 <br/>Please manually check:
 <br/>Click on the System Maintenance Panel, then click \"Open Terminal\", then run:
@@ -141,7 +141,7 @@ ${if_you_know_what_you_are_doing_msg}"
 ${resolve_attempt_commands}
 ${debugging_information}</p>"
       else
-         if in_working_sysmaint_session; then
+         if running_as_sysmaint; then
             local MSG="<p>${update_documentation_link_x} Check Result: Upgrade simulation failed!<br />
 <br/><b><u>To fix, try:</u></b>
 <br/>Click on the System Maintenance Panel, then click \"Open Terminal\", then run:
@@ -213,7 +213,7 @@ ${debugging_information}</p>"
 <br/><b><u>Please update ${update_where}.</u></b>
 ${qubes_update_help}</p>"
    else
-      if in_working_sysmaint_session; then
+      if running_as_sysmaint; then
          local MSG="<p>${update_documentation_link_x} Check Result: <b><code>apt-get</code> reports that packages <u>can be updated</u>.</b>
 <br/>Please update ${update_where}:
 <br/>Click on the System Maintenance Panel, and click \"Install Updates\". Alternatively, click \"Open Terminal\" and run:

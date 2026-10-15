@@ -272,14 +272,14 @@ systemcheck_session_detection() {
   fi
 }
 
-in_working_sysmaint_session() {
-  ## True only when a SYSMAINT Session was requested at boot
-  ## (booted_in_sysmaint_session, from kernel 'boot-role=sysmaint') AND the
-  ## session actually landed on the privileged 'sysmaint' account. In the
-  ## mismatch state (requested, but logged in as an unprivileged account) sudo
-  ## and the System Maintenance Panel are NOT available, so "fix it in the
-  ## panel" guidance would be wrong; callers fall through to the reboot advice.
-  [ "${booted_in_sysmaint_session}" = 'true' ] && [ "${who_ami}" = 'sysmaint' ]
+running_as_sysmaint() {
+  ## True when the session runs as the privileged 'sysmaint' account
+  ## (sudo-capable, System Maintenance Panel present), REGARDLESS of the
+  ## boot-role requested on the kernel cmdline. This -- not the requested role
+  ## -- is what decides whether sudo / the panel are actually available here,
+  ## so it gates "fix it in the panel" guidance. The mismatch check compares it
+  ## against the requested role (booted_in_sysmaint_session).
+  [ "${who_ami}" = 'sysmaint' ]
 }
 
 if_you_know_what_you_are_doing_funct() {
@@ -327,7 +327,7 @@ remediation_instructions() {
    ## Will also make the message make sense on GUI-less servers.
    local fix_command
    fix_command="$1"
-   if in_working_sysmaint_session; then
+   if running_as_sysmaint; then
       printf '%s' "To fix, click \"Open Terminal\" in the System Maintenance Panel, then run:<blockquote><code>sudo ${fix_command}</code></blockquote>"
    elif [ "${user_sysmaint_split_installed}" = "true" ]; then
       printf '%s' "To fix, reboot into <code>PERSISTENT Mode | SYSMAINT Session | system maintenance tasks</code>, click \"Open Terminal\" in the System Maintenance Panel, and run:<blockquote><code>sudo ${fix_command}</code></blockquote>"

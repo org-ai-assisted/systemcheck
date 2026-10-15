@@ -26,13 +26,18 @@ https://github.com/org-ai-assisted/dist-ai
 
 - `booted_in_sysmaint_session` (preparation.bsh `sysmaint_state_detection`) = kernel cmdline
   has `boot-role=sysmaint`. Boot INTENT only, not the account actually reached.
-- Actual landed account = `who_ami` (set in `preparation`). Working sysmaint session runs as
-  account `sysmaint` (uid 1001); unprivileged account is `user` (uid 1000). On Qubes the
-  sysmaint boot mode sets `boot-mode.default-user.sysmaint='sysmaint'`, so `who_ami` applies
-  there too.
-- `in_working_sysmaint_session` = `booted_in_sysmaint_session==true AND who_ami==sysmaint`.
-  Use it, not the cmdline flag alone, for any "panel / sudo available" guidance. Requested but
-  landed as `user` is a grave silent state: no sudo though the user believes otherwise.
+- Actual landed account = `who_ami` (set in `preparation`). The privileged account is
+  `sysmaint` (uid 1001); the unprivileged account is `user` (uid 1000). On Qubes the sysmaint
+  boot mode sets `boot-mode.default-user.sysmaint='sysmaint'`, so `who_ami` applies there too.
+- `running_as_sysmaint` = `who_ami==sysmaint`. The ACCOUNT, not the requested boot role,
+  decides whether sudo / the System Maintenance Panel are available, so use it (not the
+  cmdline flag) for any "fix it in the panel" guidance (`remediation_instructions`,
+  `check_operating_system`).
+- `check_user_sysmaint_split_boot_mismatch` warns (grave popup) on EITHER direction of
+  role-vs-account mismatch: SYSMAINT requested but landed as `user` (no sudo though expected),
+  or USER requested but landed as `sysmaint` (holds sudo though a locked-down session was
+  expected). The factual session line reports by account only; it does NOT restate the
+  mismatch at info severity.
 
 ## Autostart grave popups
 

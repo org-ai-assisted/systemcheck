@@ -11,7 +11,12 @@
 
 ## Grave boot-role mismatch: surfaced even in autostart mode (like
 ## check_unrestricted_mode_in_template), not just on a manual run.
-systemcheck_autostart_functions+=" check_user_sysmaint_split_boot_mismatch "
+## NOTE: the orchestrator's autostart/skip gate is an UNANCHORED substring match
+## (preparation.bsh: 'case ${systemcheck_autostart_functions} in *"$@"*'), so
+## this name must NOT contain another check's name as a substring (e.g. not
+## 'check_user_sysmaint_split...', which would also match the aggregator
+## 'check_user_sysmaint_split' and drag it into autostart / --skip).
+systemcheck_autostart_functions+=" check_sysmaint_boot_role_mismatch "
 
 check_user_sysmaint_split() {
    check_user_sysmaint_split_package
@@ -35,7 +40,7 @@ check_user_sysmaint_split_package() {
 check_user_sysmaint_split_boot_mode() {
    ## Factual result line, by the account actually in use. A boot-role vs
    ## account MISMATCH is NOT reported here (that would duplicate the grave
-   ## popup at info severity); check_user_sysmaint_split_boot_mismatch owns it.
+   ## popup at info severity); check_sysmaint_boot_role_mismatch owns it.
    if running_as_sysmaint; then
       MSG="<p>user-sysmaint-split session detection result: SYSMAINT Session.</p>"
    else
@@ -45,7 +50,7 @@ check_user_sysmaint_split_boot_mode() {
    emit_message info "${MSG}"
 }
 
-check_user_sysmaint_split_boot_mismatch() {
+check_sysmaint_boot_role_mismatch() {
    ## Grave, easy-to-miss states where the account the session landed on does
    ## not match the session type requested at boot (kernel 'boot-role=sysmaint'):
    ##  - SYSMAINT requested, landed unprivileged: user expects sudo for
@@ -54,6 +59,15 @@ check_user_sysmaint_split_boot_mismatch() {
    ##    session, but actually holds sudo-capable privileges.
    local gui_msg cli_msg link_sysmaint
    link_sysmaint="https://www.kicksecure.com/wiki/sysmaint"
+
+   ## The user/sysmaint privilege split only exists when user-sysmaint-split is
+   ## installed. Without it there is no 'sysmaint' account to land on and a
+   ## 'boot-role=sysmaint' cmdline (e.g. unrestricted-admin transitional state)
+   ## does NOT imply the current account lacks sudo, so a "sudo will not work"
+   ## claim would be false. check_unrestricted_mode_in_template owns that case.
+   if [ "${user_sysmaint_split_installed}" != 'true' ]; then
+      return 0
+   fi
 
    if [ "${booted_in_sysmaint_session}" = 'true' ]; then
       if running_as_sysmaint; then

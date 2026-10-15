@@ -33,15 +33,21 @@ https://github.com/org-ai-assisted/dist-ai
   decides whether sudo / the System Maintenance Panel are available, so use it (not the
   cmdline flag) for any "fix it in the panel" guidance (`remediation_instructions`,
   `check_operating_system`).
-- `check_user_sysmaint_split_boot_mismatch` warns (grave popup) on EITHER direction of
+- `check_sysmaint_boot_role_mismatch` warns (grave popup) on EITHER direction of
   role-vs-account mismatch: SYSMAINT requested but landed as `user` (no sudo though expected),
   or USER requested but landed as `sysmaint` (holds sudo though a locked-down session was
-  expected). The factual session line reports by account only; it does NOT restate the
-  mismatch at info severity.
+  expected). Gated on `user_sysmaint_split_installed` (no split package, no mismatch to warn
+  about). The factual session line reports by account only; it does NOT restate the mismatch
+  at info severity.
+- Autostart/skip gating is an UNANCHORED substring match
+  (`case ${systemcheck_autostart_functions} in *"$@"*`), so a registered function name must
+  not contain another check's name as a substring -- otherwise registering/skipping one drags
+  the other in. `check_sysmaint_boot_role_mismatch` is deliberately NOT prefixed
+  `check_user_sysmaint_split` for this reason.
 
 ## Autostart grave popups
 
-- Pattern: `check_unrestricted_mode_in_template.bsh`, `check_user_sysmaint_split_boot_mismatch`.
+- Pattern: `check_unrestricted_mode_in_template.bsh`, `check_sysmaint_boot_role_mismatch`.
 - Register `systemcheck_autostart_functions+=" <fn> "` at fragment top AND invoke via
   `systemcheck_run_function <fn>` in the main `systemcheck` script. The list only GATES which
   functions run in autostart; both are required.

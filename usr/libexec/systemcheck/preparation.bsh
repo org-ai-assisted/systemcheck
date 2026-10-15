@@ -273,13 +273,22 @@ systemcheck_session_detection() {
 }
 
 running_as_sysmaint() {
-  ## True when the session runs as the privileged 'sysmaint' account
-  ## (sudo-capable, System Maintenance Panel present), REGARDLESS of the
-  ## boot-role requested on the kernel cmdline. This -- not the requested role
-  ## -- is what decides whether sudo / the panel are actually available here,
-  ## so it gates "fix it in the panel" guidance. The mismatch check compares it
-  ## against the requested role (booted_in_sysmaint_session).
+  ## True when the session's account is the privileged 'sysmaint' account.
+  ## This alone does NOT imply the System Maintenance Panel is present: the
+  ## panel lives in the sysmaint SESSION, set up only on a 'boot-role=sysmaint'
+  ## boot (see in_working_sysmaint_session). The boot-role mismatch check
+  ## compares this account state against the requested role.
   [ "${who_ami}" = 'sysmaint' ]
+}
+
+in_working_sysmaint_session() {
+  ## True only in a real SYSMAINT Session: 'boot-role=sysmaint' requested at
+  ## boot AND landed on the 'sysmaint' account. Only then is the System
+  ## Maintenance Panel present, so this -- not the account alone -- gates the
+  ## "click Open Terminal in the System Maintenance Panel" guidance. A sysmaint
+  ## account reached WITHOUT that boot role (console su, manual default-user)
+  ## has sudo but no panel, and must not get panel guidance.
+  [ "${booted_in_sysmaint_session}" = 'true' ] && running_as_sysmaint
 }
 
 if_you_know_what_you_are_doing_funct() {
@@ -327,7 +336,7 @@ remediation_instructions() {
    ## Will also make the message make sense on GUI-less servers.
    local fix_command
    fix_command="$1"
-   if running_as_sysmaint; then
+   if in_working_sysmaint_session; then
       printf '%s' "To fix, click \"Open Terminal\" in the System Maintenance Panel, then run:<blockquote><code>sudo ${fix_command}</code></blockquote>"
    elif [ "${user_sysmaint_split_installed}" = "true" ]; then
       printf '%s' "To fix, reboot into <code>PERSISTENT Mode | SYSMAINT Session | system maintenance tasks</code>, click \"Open Terminal\" in the System Maintenance Panel, and run:<blockquote><code>sudo ${fix_command}</code></blockquote>"

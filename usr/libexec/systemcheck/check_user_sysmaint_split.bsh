@@ -38,10 +38,11 @@ check_user_sysmaint_split_package() {
 }
 
 check_user_sysmaint_split_boot_mode() {
-   ## Factual result line, by the account actually in use. A boot-role vs
-   ## account MISMATCH is NOT reported here (that would duplicate the grave
-   ## popup at info severity); check_sysmaint_boot_role_mismatch owns it.
-   if running_as_sysmaint; then
+   ## Factual result line, by the REQUESTED boot role (the SYSMAINT/USER Session
+   ## labels are the boot-menu names). A role vs account MISMATCH is NOT
+   ## reported here (that would duplicate the grave popup at info severity);
+   ## check_sysmaint_boot_role_mismatch owns it.
+   if [ "${booted_in_sysmaint_session}" = 'true' ]; then
       MSG="<p>user-sysmaint-split session detection result: SYSMAINT Session.</p>"
    else
       MSG="<p>user-sysmaint-split session detection result: USER Session.</p>"

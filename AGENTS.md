@@ -27,18 +27,24 @@ https://github.com/org-ai-assisted/dist-ai
 - `booted_in_sysmaint_session` (preparation.bsh `sysmaint_state_detection`) = kernel cmdline
   has `boot-role=sysmaint`. Boot INTENT only, not the account actually reached.
 - Actual landed account = `who_ami` (set in `preparation`). The privileged account is
-  `sysmaint` (uid 1001); the unprivileged account is `user` (uid 1000). On Qubes the sysmaint
-  boot mode sets `boot-mode.default-user.sysmaint='sysmaint'`, so `who_ami` applies there too.
-- `running_as_sysmaint` = `who_ami==sysmaint`. The ACCOUNT, not the requested boot role,
-  decides whether sudo / the System Maintenance Panel are available, so use it (not the
-  cmdline flag) for any "fix it in the panel" guidance (`remediation_instructions`,
-  `check_operating_system`).
+  `sysmaint` (uid 1001); the unprivileged account is `user` (uid 1000). On Qubes a sysmaint
+  boot sets BOTH `boot-mode.kernelopts.sysmaint='boot-role=sysmaint ...'` (so the cmdline flag
+  appears there too) and `boot-mode.default-user.sysmaint='sysmaint'`; they move together.
+- Two predicates, do not conflate:
+  - `running_as_sysmaint` = `who_ami==sysmaint`. The account has sudo. Used only by the
+    mismatch check (and by `in_working_sysmaint_session`).
+  - `in_working_sysmaint_session` = `booted_in_sysmaint_session==true AND running_as_sysmaint`.
+    A real SYSMAINT Session, the ONLY state where the System Maintenance Panel exists (the
+    panel lives in the sysmaint session, set up on a `boot-role=sysmaint` boot; the account
+    alone -- console su, manual default-user -- has sudo but no panel). Gate ALL "click Open
+    Terminal in the System Maintenance Panel" guidance on this (`remediation_instructions`,
+    `check_operating_system`), never on the account alone.
 - `check_sysmaint_boot_role_mismatch` warns (grave popup) on EITHER direction of
   role-vs-account mismatch: SYSMAINT requested but landed as `user` (no sudo though expected),
   or USER requested but landed as `sysmaint` (holds sudo though a locked-down session was
   expected). Gated on `user_sysmaint_split_installed` (no split package, no mismatch to warn
-  about). The factual session line reports by account only; it does NOT restate the mismatch
-  at info severity.
+  about). The factual session line reports by the REQUESTED boot role (the SYSMAINT/USER
+  Session labels ARE the boot-menu names); it does NOT restate the mismatch at info severity.
 - Autostart/skip gating is an UNANCHORED substring match
   (`case ${systemcheck_autostart_functions} in *"$@"*`), so a registered function name must
   not contain another check's name as a substring -- otherwise registering/skipping one drags

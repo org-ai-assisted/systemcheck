@@ -1,0 +1,12 @@
+#!/usr/bin/python3 -Bsu
+
+## Copyright (C) 2026 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
+## See the file COPYING for copying conditions.
+
+## Read a JSON object from stdin and print the value of the top-level field
+## named in argv[1].
+
+import sys
+import json
+
+print(json.load(sys.stdin)[sys.argv[1]])

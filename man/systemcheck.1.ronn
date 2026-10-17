@@ -40,8 +40,13 @@ which are important for security.
 
     Deactivates output auto detection. Enables cli output.
 
+  * --ci
+
+    CI / automated-test mode. Silences or decreases the severity of several
+    test failures that are expected in CI.
+
 ## EXIT CODES
-0 Success
+0 Success or canceled via GUI cancel button.
 
 1 Error
 

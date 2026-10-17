@@ -3,31 +3,33 @@
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
 
-## style-ok: no-strict
-## errexit and nounset ARE set below. pipefail is intentionally NOT set: the
-## journal grep pipelines legitimately exit non-zero on no-match and must not
-## abort. The gate's R-010 strict-triple does not fit this script.
-##
-## TODO: Can we adjust this script so that we can use a standard strict
-## preamble?
-
 ## NOTE: Runs as user `systemcheck`. Can run privleap actions
 ## `read-journalctl-logs-this-boot`,
 ## `read-journalctl-logs-last-boot`, and
 ## `read-journalctl-logs-whonix-firewall`.
 
-#set -x
+## provides was_executed
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
+if ! declare -F was_executed >/dev/null; then
+   printf '%s\n' "$0: ERROR: cannot source check_runtime.bsh!" >&2
+   exit 1
+fi
 
-set -o errexit
-set -o nounset
-set -o errtrace
-#set -o pipefail
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/strings.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/strings.bsh
 
-## Redirect all stderr to stdout.
-exec 2>&1
-
-bash -n /usr/libexec/helper-scripts/strings.bsh
-source /usr/libexec/helper-scripts/strings.bsh
+if was_executed "${BASH_SOURCE[0]}"; then
+   set -o errexit
+   set -o nounset
+   set -o pipefail
+   set -o errtrace
+   shopt -s inherit_errexit
+   shopt -s shift_verbose
+   export LC_ALL=C
+   ## Redirect all stderr to stdout.
+   exec 2>&1
+fi
 
 ## Copied from /usr/libexec/systemcheck/preparation.bsh.
 source_config() {
@@ -56,93 +58,85 @@ prep_temp_dir() {
   TEMP="${TMPDIR}"
   TEMPDIR="${TMPDIR}"
   export TMP TMPDIR TEMP TEMPDIR
-  ## The directory creation and permission assignment MUST be done atomically,
+  ## The directory creation and permission assignment must be done atomically,
   ## otherwise a TOCTOU vuln may allow arbitrary processes to leak the full
   ## contents of the journal.
   # shellcheck disable=SC2174
   mkdir --parents --mode=700 -- "${TMPDIR}"
+  ## The dir may already exist, so make sure it is a non-symlink dir and its
+  ## permissions and ownership are safe.
+  if test -L "${TMPDIR}" || ! test -d "${TMPDIR}" || ! test -O "${TMPDIR}" \
+    || [ "$(stat --format='%a' -- "${TMPDIR}")" != '700' ]; then
+    printf '%s\n' "$0: ${FUNCNAME[0]}: ERROR: Temporary directory '${TMPDIR}' is unsafe!"
+    return 1
+  fi
   test -w "${TMPDIR}"
 }
 
 check_service_logs() {
-  local patterns grep_ignore_fixed_items_command journal_ignore_fixed_item journal_search_pattern_list check_boot
-  # local counter
+  local grep_ignore_fixed_items_command journal_ignore_fixed_item grep_ignore_patterns_command journal_ignore_pattern_item journal_search_pattern_list check_boot
 
   check_boot="${1:-}"
 
+  safe-rm --force -- "${TMPDIR}/journalctl_kernel.txt"
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
   touch -- "${TMPDIR}/journalctl_output.txt"
 
   if [ "${check_boot}" = 'this_boot' ]; then
-    ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
+    leaprun read-journalctl-logs-this-boot 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
   elif [ "${check_boot}" = 'last_boot' ]; then
-    ( leaprun read-journalctl-logs-last-boot || true ) 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
+    ## Absent last boot logs must not be permitted to cause script failure, as
+    ## this would break systemcheck under Qubes OS.
+    { leaprun read-journalctl-logs-last-boot || true; } 2>&1 | tee --append -- "${TMPDIR}/journalctl_output.txt" >/dev/null
   else
     printf '%s\n' "$0: ${FUNCNAME[0]}: ERROR: Unrecognized boot identifier '${check_boot}', expected 'this_boot' or 'last_boot'!"
     return 1
   fi
 
-  ## 'BUG' is word-boundary anchored (like 'fault' below) so it matches real
-  ## kernel reports ('BUG:', 'kernel BUG at') but NOT the substring in words like
-  ## 'debugging'.
   journal_search_pattern_list="SECCOMP.*syscall=|warn|fail|error|ordering cycle|(^|[^a-zA-Z])BUG($|[^a-zA-Z])|segfault|killed|(^|[^a-zA-Z])fault($|[^a-zA-Z])|self-detected stall on CPU"
 
   if test -e /usr/share/qubes/marker-vm; then
     journal_ignore_patterns_list+=( "virtualbox" )
   fi
 
-  grep --extended-regexp --ignore-case "${journal_search_pattern_list}" -- "${TMPDIR}/journalctl_output.txt" \
+  { grep --extended-regexp --ignore-case "${journal_search_pattern_list}" -- "${TMPDIR}/journalctl_output.txt" || true; } \
     | tee -- "${TMPDIR}/journalctl_matched.txt" >/dev/null
 
   safe-rm --force -- "${TMPDIR}/journalctl_output.txt"
 
   ## Output by 'apparmor-info' is already de-duplicated.
-  leaprun read-apparmor-info | tee --append -- "${TMPDIR}/journalctl_matched.txt" >/dev/null
+  ##
+  ## Need to silence non-zero exit code from apparmor-info, as it returns 1
+  ## when "DENIED" messages are found.
+  { leaprun read-apparmor-info || true; } | tee --append -- "${TMPDIR}/journalctl_matched.txt" >/dev/null
 
-  grep_ignore_fixed_items_command=()
-  grep_ignore_fixed_items_command+=("grep")
-  grep_ignore_fixed_items_command+=("--invert-match")
-  grep_ignore_fixed_items_command+=("--fixed-strings")
-  grep_ignore_fixed_items_command+=("--ignore-case")
-
-  #counter=0
-  for journal_ignore_fixed_item in "${journal_ignore_fixed_list[@]}"; do
-    #counter=$(( counter + 1 ))
-    ## Debugging.
-    ## Either this should be commented out when unneeded, or it should
-    ## be a `true` if it's meant to show up when `set -x` is enabled.
-    ## Outputting it to /dev/null like this is a needless waste of resources.
-    #printf '%s\n' "$counter: '$journal_ignore_fixed_item'" >/dev/null
-
-    grep_ignore_fixed_items_command+=("-e")
-    grep_ignore_fixed_items_command+=("${journal_ignore_fixed_item}")
-  done
-
-#   counter=0
-#   local journal_ignore_pattern_item
-#   for journal_ignore_pattern_item in "${journal_ignore_patterns_list[@]}"; do
-#     counter=$(( counter + 1 ))
-#     ## Debugging.
-#     #printf '%s\n' "$counter: '$journal_ignore_pattern_item'" >/dev/null
-#   done
-
-  "${grep_ignore_fixed_items_command[@]}" -- "${TMPDIR}/journalctl_matched.txt" \
-    | tee -- "${TMPDIR}/journalctl_fixed_filtered.txt" >/dev/null
+  if [ "${#journal_ignore_fixed_list[@]}" -gt 0 ]; then
+    grep_ignore_fixed_items_command=( grep --invert-match --fixed-strings --ignore-case )
+    for journal_ignore_fixed_item in "${journal_ignore_fixed_list[@]}"; do
+      grep_ignore_fixed_items_command+=( -e "${journal_ignore_fixed_item}" )
+    done
+    { "${grep_ignore_fixed_items_command[@]}" -- "${TMPDIR}/journalctl_matched.txt" || true; } \
+      | tee -- "${TMPDIR}/journalctl_fixed_filtered.txt" >/dev/null
+  else
+    cp -- "${TMPDIR}/journalctl_matched.txt" "${TMPDIR}/journalctl_fixed_filtered.txt"
+  fi
 
   safe-rm --force -- "${TMPDIR}/journalctl_matched.txt"
 
-  patterns="$(printf '%s|' "${journal_ignore_patterns_list[@]}" | head -c-1)"
-
-  grep --invert-match --extended-regexp --ignore-case "${patterns}" -- "${TMPDIR}/journalctl_fixed_filtered.txt" \
-    | tee -- "${TMPDIR}/journalctl_match_filtered.txt" >/dev/null
+  if [ "${#journal_ignore_patterns_list[@]}" -gt 0 ]; then
+    grep_ignore_patterns_command=( grep --invert-match --extended-regexp --ignore-case )
+    for journal_ignore_pattern_item in "${journal_ignore_patterns_list[@]}"; do
+      grep_ignore_patterns_command+=( -e "${journal_ignore_pattern_item}" )
+    done
+    { "${grep_ignore_patterns_command[@]}" -- "${TMPDIR}/journalctl_fixed_filtered.txt" || true; } \
+      | tee -- "${TMPDIR}/journalctl_match_filtered.txt" >/dev/null
+  else
+    cp -- "${TMPDIR}/journalctl_fixed_filtered.txt" "${TMPDIR}/journalctl_match_filtered.txt"
+  fi
 
   ## Neutralize HTML metacharacters in untrusted journal content BEFORE
   ## br_add_to_file bakes in '<br />' tags. This output is later rendered in
   ## the GUI; stcatn (applied afterwards) strips ANSI, not HTML.
-  ##
-  ## Not piping to 'sponge' because that would cause errors in
-  ## sanitize-string to not terminate the script, because pipefail is not
-  ## enabled.
   sanitize-string -- nolimit < "${TMPDIR}/journalctl_match_filtered.txt" > "${TMPDIR}/journalctl_match_filtered.txt.tmp"
   mv -- "${TMPDIR}/journalctl_match_filtered.txt.tmp" "${TMPDIR}/journalctl_match_filtered.txt"
 
@@ -152,36 +146,64 @@ check_service_logs() {
   safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt"
 
   stcatn "${TMPDIR}/journalctl_match_filtered.txt_br" | sort --unique
+  safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt_br"
+
+  ## These will later be used by check_critical_logs. Note that these are
+  ## intentionally unsanitized for now and will be sanitized later.
+  if [ "${check_boot}" = 'this_boot' ]; then
+    leaprun read-journalctl-kernel-logs-this-boot 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+  else
+    { leaprun read-journalctl-kernel-logs-last-boot || true; } 2>&1 | tee -- "${TMPDIR}/journalctl_kernel.txt" >/dev/null
+  fi
 }
 
 check_critical_logs() {
-   local critical_pattern
+   local hard_critical log_file matched
 
-   if ! test -e "${TMPDIR}/journalctl_match_filtered.txt_br"; then
+   log_file="${TMPDIR}/journalctl_kernel.txt"
+   if ! test -e "${log_file}"; then
       return 0
    fi
 
-   ## Patterns that are considered "so bad they must be shown" always.
-   ## The space before ' BUG:' is important to avoid matching 'debug:'.
-   critical_pattern='Bad RAM detected|self-detected stall on CPU| BUG:|nouveau .* channel .* killed!'
+   hard_critical='Bad RAM detected|self-detected stall on CPU| BUG:|^BUG:|BUG at |BUG at:|nouveau .* channel .* killed!'
+   matched="${TMPDIR}/journalctl_kernel_critical.txt"
+   ## Technically sanitize-string could drop text it doesn't need to if a
+   ## critical line of a kernel log contains '<' and '>' characters, but this
+   ## is very unlikely to happen, and the kinds of logs we search for are
+   ## unlikely to be ones an attacker can influence.
+   { grep --text --ignore-case --extended-regexp -- "${hard_critical}" "${log_file}" || true; } | sort --unique | sanitize-string --no-block -- nolimit > "${matched}"
 
-   grep --ignore-case --extended-regexp "${critical_pattern}" -- "${TMPDIR}/journalctl_match_filtered.txt_br" | \
-     stcatn
+   br_add_to_file "${matched}"
+   stcatn "${matched}_br"
 
-   safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt_br"
+   safe-rm --force -- "${log_file}" "${matched}" "${matched}_br"
 }
 
-journal_ignore_patterns_list=()
-journal_ignore_fixed_list=()
-source_config
-prep_temp_dir
+main() {
+  local check_mode
+  journal_ignore_patterns_list=()
+  journal_ignore_fixed_list=()
+  source_config
+  prep_temp_dir
 
-check_mode="${1:-}"
-if [ "${check_mode}" = 'check_service_logs' ]; then
-  check_service_logs "${2:-}"
-elif [ "${check_mode}" = 'check_critical_logs' ]; then
-  check_critical_logs
-else
-  printf '%s\n' "$0: ERROR: Unrecognized mode '${check_mode}' specified!" >&2
-  exit 1
+  check_mode="${1:-}"
+  if [ "${check_mode}" = 'check_service_logs' ]; then
+    check_service_logs "${2:-}"
+  elif [ "${check_mode}" = 'check_critical_logs' ]; then
+    check_critical_logs
+  elif [ "${check_mode}" = 'get_failed_load_modules_list' ]; then
+    ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 \
+      | sed -n "s/.*Failed to insert module '\(.*\)':.*/\1/p" \
+      | sanitize-string -- nolimit
+  elif [ "${check_mode}" = 'get_kernel_module_key_rejected_count' ]; then
+    ( leaprun read-journalctl-logs-this-boot || true ) 2>&1 \
+      | grep --fixed-strings --count 'kernel: Loading of module with unavailable key is rejected'
+  else
+    printf '%s\n' "$0: ERROR: Unrecognized mode '${check_mode}' specified!" >&2
+    return 1
+  fi
+}
+
+if was_executed "${BASH_SOURCE[0]}"; then
+  main "$@"
 fi

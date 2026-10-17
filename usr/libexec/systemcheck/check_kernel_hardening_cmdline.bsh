@@ -3,10 +3,55 @@
 ## Copyright (C) 2026 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
 
+## Globals are set and consumed by 'systemcheck'.
+# shellcheck disable=SC2154,SC2034
+
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
 ## AI-Assisted
+
+## All the security-relevant kernel hardening options that are enabled
+## unconditionally by security-misc and aren't effectively tested by
+## spectre-meltdown-checker already. This is a global to allow configuration
+## to augment it if desired.
+##
+## To regenerate/verify this list, cd to the root of security-misc,
+## then run:
+##   grep --no-filename '^GRUB_CMDLINE_LINUX' \
+##      etc/default/grub.d/40_kernel_hardening.cfg* \
+##      etc/default/grub.d/41_recovery_restrict.cfg*
+## and take the trailing word of every non-commented assignment.
+systemcheck_kernel_hardening_token_list=(
+   ## 40_kernel_hardening.cfg
+   'slab_nomerge'
+   'slab_debug=FZ'
+   'init_on_alloc=1'
+   'init_on_free=1'
+   'page_alloc.shuffle=1'
+   'randomize_kstack_offset=on'
+   'vsyscall=none'
+   'debugfs=off'
+   'kfence.sample_interval=100'
+   'vdso32=0'
+   'cfi=kcfi'
+   'ia32_emulation=0'
+   'efi_pstore.pstore_disable=1'
+   'erst_disable'
+   'proc_mem.force_override=ptrace'
+   'amd_iommu=force_isolation'
+   'intel_iommu=on'
+   'iommu=force'
+   'iommu.passthrough=0'
+   'iommu.strict=1'
+   'efi=disable_early_pci_dma'
+   'random.trust_cpu=off'
+   'random.trust_bootloader=off'
+   'extra_latent_entropy'
+   ## 41_recovery_restrict.cfg
+   'rd.emergency=halt'
+   'rd.shell=0'
+)
 
 check_kernel_hardening_cmdline() {
    local status_text
@@ -31,47 +76,6 @@ check_kernel_hardening_cmdline() {
       return 0
    fi
 
-   ## All the security-relevant kernel hardening options that are enabled
-   ## unconditionally by security-misc and aren't effectively tested by
-   ## spectre-meltdown-checker already.
-   ##
-   ## To regenerate/verify this list, cd to the root of security-misc,
-   ## then run:
-   ##   grep --no-filename '^GRUB_CMDLINE_LINUX' \
-   ##      etc/default/grub.d/40_kernel_hardening.cfg* \
-   ##      etc/default/grub.d/41_recovery_restrict.cfg*
-   ## and take the trailing word of every non-commented assignment.
-   local -a hardening_tokens=(
-      ## 40_kernel_hardening.cfg
-      'slab_nomerge'
-      'slab_debug=FZ'
-      'init_on_alloc=1'
-      'init_on_free=1'
-      'page_alloc.shuffle=1'
-      'randomize_kstack_offset=on'
-      'vsyscall=none'
-      'debugfs=off'
-      'kfence.sample_interval=100'
-      'vdso32=0'
-      'cfi=kcfi'
-      'ia32_emulation=0'
-      'efi_pstore.pstore_disable=1'
-      'erst_disable'
-      'proc_mem.force_override=ptrace'
-      'amd_iommu=force_isolation'
-      'intel_iommu=on'
-      'iommu=force'
-      'iommu.passthrough=0'
-      'iommu.strict=1'
-      'efi=disable_early_pci_dma'
-      'random.trust_cpu=off'
-      'random.trust_bootloader=off'
-      'extra_latent_entropy'
-      ## 41_recovery_restrict.cfg
-      'rd.emergency=halt'
-      'rd.shell=0'
-   )
-
    ## For 'key=value' style parameters, the last occurrence wins.
    ## TODO-HUMAN-REVIEWER-ONLY: Verify that the kernel behaves this way.
    local -a cmdline_words
@@ -90,7 +94,7 @@ check_kernel_hardening_cmdline() {
 
    local -a missing_tokens=()
    local token token_key token_value
-   for token in "${hardening_tokens[@]}"; do
+   for token in "${systemcheck_kernel_hardening_token_list[@]}"; do
       case "${token}" in
          *=*)
             token_key="${token%%=*}"
@@ -107,7 +111,7 @@ check_kernel_hardening_cmdline() {
    done
 
    if [ "${#missing_tokens[@]}" -eq 0 ]; then
-      emit_status_line info "${status_text}" "" green "Present"
+      run_if_verbose emit_status_line info "${status_text}" "" green "Present"
    else
       local missing_joined
       missing_joined="$(IFS=' '; printf '%s' "${missing_tokens[*]}")"

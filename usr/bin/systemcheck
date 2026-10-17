@@ -3,6 +3,8 @@
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
 
+## style-ok: no-strict -- 'export LC_ALL=C' omitted by design.
+
 #set -x
 set -o errexit
 set -o nounset
@@ -18,7 +20,7 @@ shopt -s shift_verbose
 #exec 5>&1 1>> "/$TMP/systemcheck-debug.txt"
 #exec 6>&2 2>> "/$TMP/systemcheck-debug.txt"
 
-#source /usr/libexec/helper-scripts/lockfile.sh
+source /usr/libexec/helper-scripts/lockfile.sh
 
 if [ -o xtrace ]; then
   ## NOTE: Not using 'bash -x' as this would disable AppArmor.

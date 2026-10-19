@@ -48,7 +48,15 @@ include <tunables/global>
 
   ## AVC apparmor="DENIED" operation="mknod" class="file" profile="/usr/bin/systemcheck" name="/home/sysmaint/.config/yad.conf.BE76E3" comm="yad" requested_mask="c" denied_mask="c"
   deny @{HOME}/.config/yad.* rwk,
-  deny /run/user/*/dconf/** rwk,
+
+  ## yad (launched for progress dialogs) reads the user's GSettings (font,
+  ## text-scaling, high-contrast) via dconf. Allow it so a transient dialog
+  ## honors those settings instead of defaulting, and so dconf's runtime
+  ## cache-invalidation flag file is created rather than failing with a
+  ## spurious dconf-CRITICAL. Read-only on the persistent db; the runtime
+  ## dir is the user's own, not sensitive.
+  include <abstractions/dconf>
+  owner /run/user/*/dconf/ rw,
 
   / r,
   /dev/ r,

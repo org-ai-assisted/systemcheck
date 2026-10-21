@@ -300,6 +300,7 @@ include <tunables/global>
   /{,usr/}bin/id rix,
   /{,usr/}bin/install rix,
   /{,usr/}bin/ip rix,
+  /{,usr/}bin/jq rix,
   /{,usr/}bin/journalctl rix,
   /{,usr/}bin/kmod rix,
   /{,usr/}bin/leaprun rix,

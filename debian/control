@@ -4,7 +4,7 @@
 Source: systemcheck
 Section: misc
 Priority: optional
-Maintainer: Patrick Schleizer <adrelanos@kicksecure.com>
+Maintainer: Patrick Schleizer <adrelanos@whonix.org>
 Build-Depends: debhelper (>= 13.11.6), debhelper-compat (= 13), dh-apparmor
 Homepage: https://www.kicksecure.com/wiki/systemcheck
 Vcs-Browser: https://github.com/Kicksecure/systemcheck
@@ -14,9 +14,9 @@ Rules-Requires-Root: no
 
 Package: systemcheck
 Architecture: all
-Depends: dist-base-files, helper-scripts, python3, signify-openbsd, curl,
+Depends: dist-base-files, helper-scripts (>= 3:55.4-1), python3, signify-openbsd, curl,
  ca-certificates, msgcollector, psmisc, vrms,
- libarchive-tools, net-tools, iproute2, privleap,
+ libarchive-tools, jq, net-tools, iproute2, privleap,
  adduser, security-misc-shared, spectre-meltdown-checker,
  apparmor-profile-dist, safe-rm, sound-theme-freedesktop, ${misc:Depends}
 Replaces: apparmor-profile-whonixcheck, whonixcheck

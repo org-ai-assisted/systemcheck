@@ -1,7 +1,10 @@
-#!/bin/bash
+#!/bin/bash -e
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
+
+## Sourced scripts set many runtime globals.
+# shellcheck disable=SC2154
 
 ## style-ok: no-strict
 ## style-ok: allow-errexit-toggle
@@ -12,16 +15,17 @@
 ## nounset is likewise unsafe here -- many optional flag variables are read
 ## before being set.
 
+## provides was_executed
+# shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
+if ! declare -F was_executed >/dev/null; then
+   printf '%s\n' "$0: ERROR: cannot source check_runtime.bsh!" >&2
+   exit 1
+fi
+
 ## If anyone adds a VPN or something similar to Whonix-Workstation
 ## (i.e. connection scheme: Whonix-Workstation -> Tor -> VPN), he would wonder
 ## why it is not detected.
-
-#set -x
-set -o errexit
-set -o pipefail
-set -o errtrace
-
-#trap 'sleep 1' DEBUG
 
 NOTIFY_MSG="Checking System Status...
 This will happen in the background and will take approximately three minutes..."
@@ -34,6 +38,8 @@ IDENTIFIER="${SCRIPTNAME}"
 ## Debugging with bashdb.
 #IDENTIFIER="systemcheck"
 
+## Libraries and snippets must be sourced unconditionally.
+
 bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/wc-test.sh
 source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
@@ -41,8 +47,6 @@ source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/wc-test.sh
 bash -n /usr/libexec/msgcollector/error_handler
 # shellcheck source=../../../../msgcollector/usr/libexec/msgcollector/error_handler
 source /usr/libexec/msgcollector/error_handler
-trap "error_handler" ERR ## /usr/libexec/msgcollector/error_handler
-set +e
 
 bash -n "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/light_sleep.bsh
 # shellcheck source=../../../../helper-scripts/usr/libexec/helper-scripts/light_sleep.bsh
@@ -183,6 +187,9 @@ source /usr/libexec/systemcheck/check_systemd_clock.bsh
 bash -n /usr/libexec/systemcheck/check_system_ready.bsh
 # shellcheck source=./check_system_ready.bsh
 source /usr/libexec/systemcheck/check_system_ready.bsh
+bash -n /usr/libexec/systemcheck/check_tempdir.bsh
+# shellcheck source=./check_tempdir.bsh
+source /usr/libexec/systemcheck/check_tempdir.bsh
 bash -n /usr/libexec/systemcheck/check_timezone.bsh
 # shellcheck source=./check_timezone.bsh
 source /usr/libexec/systemcheck/check_timezone.bsh
@@ -289,6 +296,16 @@ systemcheck_progress_main_open() {
 }
 
 systemcheck_main() {
+   #set -x
+   set -o errexit
+   set -o pipefail
+   set -o errtrace
+
+   #trap 'sleep 1' DEBUG
+
+   trap "error_handler" ERR ## /usr/libexec/msgcollector/error_handler
+   set +e
+
    ## Default optional flag vars (set only conditionally elsewhere) so the
    ## normal path never reads them while unset.
    [ -v verbose ] || verbose=""
@@ -308,6 +325,14 @@ systemcheck_main() {
    fi
 
    parse_cmd_options "$@" ## parse_cmd
+
+   ## Wait for the per-user privleapd socket BEFORE preparation and any other leaprun use.
+   ## preparation (virtualizer detection) and function_manual_run (for --function) both call
+   ## leaprun; a leaprun run against a not-yet-ready socket caches "Could not connect to
+   ## privleapd!", so the dependent check (e.g. check_virtualizer) stays falsely red even
+   ## after the socket comes up.
+   "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/try-wait-for-privleap-socket-ready
+
    preparation ## preparation
 
    ## uses network: no
@@ -327,6 +352,9 @@ systemcheck_main() {
    systemcheck_run_function check_unrestricted_mode_in_template ## check_unrestricted_mode_in_template
 
    ## uses network: no
+   systemcheck_run_function check_sysmaint_boot_role_mismatch ## check_user_sysmaint_split
+
+   ## uses network: no
    systemcheck_run_function check_system_ready ## check_system_ready
 
    ## uses network: no
@@ -334,6 +362,9 @@ systemcheck_main() {
 
    ## uses network: no
    systemcheck_run_function check_environment_variables ## check_environment_variables
+
+   ## uses network: no
+   systemcheck_run_function check_tempdir ## check_tempdir
 
    ## uses network: no
    systemcheck_run_function check_privleap_group_membership ## check_privilege_escalation_tool
@@ -520,6 +551,8 @@ systemcheck_main() {
    systemcheck_run_function cleanup ## cleanup
 }
 
-systemcheck_main "$@"
+if was_executed "${BASH_SOURCE[0]}"; then
+   systemcheck_main "$@"
+fi
 
 ## End of systemcheck script.

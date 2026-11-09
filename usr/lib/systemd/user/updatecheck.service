@@ -16,13 +16,19 @@ Restart=always
 ## W^X hardening (anonymous executable memory). MemoryDenyWriteExecute denies
 ## anon W+X and mprotect/shmat gaining PROT_EXEC; SystemCallArchitectures=native
 ## closes the secondary-ABI (i386) bypass; LockPersonality blocks the
-## READ_IMPLIES_EXEC bypass; SystemCallFilter=~memfd_create kills the memfd
+## READ_IMPLIES_EXEC bypass; SystemCallFilter=~memfd_create denies the memfd
 ## bypass; NoExecPaths marks the shared writable dirs non-executable (file-backed
 ## exec MDWE does not cover). updatecheck-daemon is bash, no JIT.
+## SystemCallErrorNumber=EPERM: a denied syscall returns -EPERM (a catchable
+## error) instead of the default SIGSYS kill. These restrictions INHERIT into
+## children; updatecheck's permission-denied path spawns a PyQt/xcb popup
+## (one-time-popup.py) that calls memfd_create -- EPERM lets Qt fall back to
+## non-memfd shm and render, where a SIGSYS kill would silently abort it.
 MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 LockPersonality=true
 SystemCallFilter=~memfd_create
+SystemCallErrorNumber=EPERM
 NoExecPaths=/tmp /var/tmp /dev/shm
 
 ## Defense-in-depth (separate axis from W^X): NoNewPrivileges blocks this

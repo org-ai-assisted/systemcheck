@@ -179,8 +179,20 @@ sigterm_trap() {
 }
 
 exit_trap() {
-  true "$0: ${FUNCNAME[0]}: end of script: END"
-  exit 0
+  ## Preserve the real exit status. Capture it FIRST -- any command (even 'true')
+  ## resets $?. Forcing 'exit 0' here would mask a failed branch (e.g. a popup
+  ## killed/erroring out) as success. Intended-success paths already 'exit 0'
+  ## explicitly, so they are unaffected.
+  local exit_code=$?
+  true "$0: ${FUNCNAME[0]}: end of script: END (exit_code=${exit_code})"
+  exit "${exit_code}"
+}
+
+show_permission_popup() {
+  ## Wrapper around the real msgcollector popup: a single seam a unit test can
+  ## stub, and MSGCOLLECTOR_REPO-overridable (unset -> /usr/libexec, i.e.
+  ## production is byte-identical).
+  "${MSGCOLLECTOR_REPO:-}"/usr/libexec/msgcollector/one-time-popup.py "$@"
 }
 
 update_output_check() {
@@ -246,7 +258,7 @@ main() {
 Account '${who_ami}' lacks privleap permission. See:
 https://www.kicksecure.com/wiki/Systemcheck#updatecheck_for_accounts_other_than_user"
     printf "%s\n" "$0: ERROR: ${msg}"
-    /usr/libexec/msgcollector/one-time-popup.py ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "${msg}"
+    show_permission_popup ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "${msg}"
     exit 0
   fi
 

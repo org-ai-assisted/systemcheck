@@ -18,10 +18,14 @@ RemainAfterExit=true
 ## SystemCallErrorNumber=EPERM: a denied syscall returns -EPERM (a catchable
 ## error) instead of the default SIGSYS kill. These restrictions INHERIT into
 ## children; the progress-bar path (msgcollector -> msgprogressbar -> yad, GTK)
-## runs as a DIRECT descendant here and calls memfd_create for its shm buffer --
-## EPERM lets GTK fall back and render, where a SIGSYS kill would abort it. (The
-## --messagex/passive dialogs render out-of-process in msgdispatcher, so those
-## are not under this filter.)
+## runs as a DIRECT descendant here and calls memfd_create for its shm buffer.
+## On the Kicksecure default X11/Xfce desktop, GTK's MIT-SHM is optional, so EPERM
+## makes yad fall back to non-shm and still render, where a SIGSYS kill would
+## abort it. CAVEAT on a Wayland session: GTK3's gdk_wayland falls back to
+## shm_open only on ENOSYS, not EPERM, so the progress bar does not render there
+## (a GDK CRITICAL, not a crash) -- still strictly better than the SIGSYS kill,
+## which aborted it on every session. (The --messagex/passive dialogs render
+## out-of-process in msgdispatcher, so those are not under this filter.)
 MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 LockPersonality=true

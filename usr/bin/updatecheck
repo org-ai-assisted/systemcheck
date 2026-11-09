@@ -89,11 +89,17 @@ close_notification() {
     return 0
   fi
 
+  ## Best-effort: closing the desktop notification is cleanup, not the script's
+  ## job. A qdbus failure (e.g. no Qt / 'could not find a Qt installation') must
+  ## not abort the SIGTERM handler before its 'exit 0' -- under errexit that
+  ## would make the EXIT trap propagate a failure and fabricate a FAILED exit for
+  ## a clean shutdown (the daemon SIGTERMs updatecheck on every cycle).
   qdbus \
     org.freedesktop.Notifications \
     /org/freedesktop/Notifications \
     org.freedesktop.Notifications.CloseNotification \
-    "${notification_id}"
+    "${notification_id}" \
+    || true
 
   true "$0: ${FUNCNAME[0]}: END"
 }

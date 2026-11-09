@@ -58,6 +58,16 @@ ${remediation}</p>"
    emit_message warning "${MSG}"
 }
 
+no_new_privs_active() {
+   ## /proc/self/status reports 'NoNewPrivs: 1' when PR_SET_NO_NEW_PRIVS is set.
+   ## systemcheck.service runs W^X-hardened with NoNewPrivileges, and a
+   ## 'systemd --user' unit's W^X seccomp forces no_new_privs regardless. Under
+   ## it a setuid exec cannot gain privilege (the kernel refuses).
+   local no_new_privs_value
+   no_new_privs_value="$(grep -- 'NoNewPrivs' /proc/self/status 2>/dev/null | awk '{ print $2 }')" || true
+   [ "${no_new_privs_value}" = "1" ]
+}
+
 check_privilege_escalation_tools() {
    ## leaprun is mandatory for systemcheck.
    ## systemcheck has been fully ported to privleap.
@@ -67,6 +77,16 @@ check_privilege_escalation_tools() {
    check_privilege_escalation_tool_do leaprun check-privleap
    check_privilege_escalation_tool_do leaprun check-privleap-environment-variables
    check_privilege_escalation_tool_do leaprun check-sudo
+
+   ## Under no_new_privs a setuid exec cannot gain privilege, so 'sudo'/'pkexec'
+   ## abort by design, not from misconfiguration -- do not false-fail them. The
+   ## leaprun checks above use a non-setuid privleapd socket client, so they are
+   ## unaffected and always run. An interactive run has no_new_privs unset and
+   ## exercises sudo/pkexec normally.
+   if no_new_privs_active; then
+      run_if_verbose emit_status_line info "Checks '<code>sudo</code>' / '<code>pkexec</code>'" "" orange "N/A" "(no_new_privs)"
+      return 0
+   fi
 
    if [ "${use_sudo}" = "yes" ]; then
       check_privilege_escalation_tool_do sudo --non-interactive -- /usr/bin/test -x /usr/bin/test

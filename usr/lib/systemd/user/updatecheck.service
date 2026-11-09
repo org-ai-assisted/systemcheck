@@ -12,3 +12,15 @@ ExecStart=/usr/libexec/systemcheck/updatecheck-daemon
 WatchdogSec=25200
 NotifyAccess=all
 Restart=always
+
+## W^X hardening (anonymous executable memory). MemoryDenyWriteExecute denies
+## anon W+X and mprotect/shmat gaining PROT_EXEC; SystemCallArchitectures=native
+## closes the secondary-ABI (i386) bypass; LockPersonality blocks the
+## READ_IMPLIES_EXEC bypass; SystemCallFilter=~memfd_create kills the memfd
+## bypass; NoExecPaths marks the shared writable dirs non-executable (file-backed
+## exec MDWE does not cover). updatecheck-daemon is bash, no JIT.
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+LockPersonality=true
+SystemCallFilter=~memfd_create
+NoExecPaths=/tmp /var/tmp /dev/shm

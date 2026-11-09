@@ -8,3 +8,16 @@ Description=System health checker (user service)
 Type=exec
 ExecStart=systemcheck --autostart
 RemainAfterExit=true
+
+## W^X hardening (anonymous executable memory). MemoryDenyWriteExecute denies
+## anon W+X and mprotect/shmat gaining PROT_EXEC; SystemCallArchitectures=native
+## closes the secondary-ABI (i386) bypass; LockPersonality blocks the
+## READ_IMPLIES_EXEC bypass; SystemCallFilter=~memfd_create kills the memfd
+## bypass; NoExecPaths marks the shared writable dirs non-executable (file-backed
+## exec MDWE does not cover). The bash front-end and its dialog helpers
+## (zenity/kdialog) do not JIT.
+MemoryDenyWriteExecute=true
+SystemCallArchitectures=native
+LockPersonality=true
+SystemCallFilter=~memfd_create
+NoExecPaths=/tmp /var/tmp /dev/shm

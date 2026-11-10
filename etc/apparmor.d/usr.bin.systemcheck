@@ -326,6 +326,7 @@ include <tunables/global>
   /{,usr/}bin/qubesdb-read rix,
   /{,usr/}bin/readlink rix,
   /{,usr/}bin/realpath rix,
+  /{,usr/}bin/remount-secure rix,
   /{,usr/}bin/rm rix,
   /{,usr/}bin/run-parts rix,
   /{,usr/}bin/safe-rm rix,

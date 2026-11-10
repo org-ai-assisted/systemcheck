@@ -1,0 +1,41 @@
+#!/bin/bash
+
+## Copyright (C) 2026 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
+## See the file COPYING for copying conditions.
+
+## Globals are set and consumed by 'systemcheck'.
+# shellcheck disable=SC2154,SC2034
+
+## style-ok: no-strict
+## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
+
+check_mount_options() {
+   local status_text audit_output rc deviations skip_blurb body
+
+   status_text="Mount Options Hardening Test Result"
+
+   ## security-misc's remount-secure --check audits the live mount options
+   ## against its own level-3 (strict) policy, read-only (no remount, no root).
+   ## remount-secure is the single source of truth for the intended per-
+   ## mountpoint options, so systemcheck never re-encodes that table. Nonzero
+   ## exit means at least one mountpoint deviates.
+   rc=0
+   audit_output="$(remount-secure --check 3)" || rc=$?
+
+   if [ "${rc}" = "0" ]; then
+      run_if_verbose emit_status_line info "${status_text}" "" green "${status_ok}"
+      return 0
+   fi
+
+   deviations="$(printf '%s\n' "${audit_output}" | grep '^DEVIATION:' || true)"
+   skip_blurb="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
+   body="One or more mountpoints lack the expected hardening mount options (nosuid / nodev / noexec):
+${deviations}
+${skip_blurb}"
+
+   emit_status_line warning "${status_text}" \
+      "https://www.kicksecure.com/wiki/Dev/remount-secure" orange "Not hardened" \
+      "${body}"
+   EXIT_CODE="1"
+   return 0
+}

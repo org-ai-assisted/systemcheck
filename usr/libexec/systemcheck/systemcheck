@@ -142,6 +142,9 @@ source /usr/libexec/systemcheck/check_logs.bsh
 bash -n /usr/libexec/systemcheck/check_man.bsh
 # shellcheck source=./check_man.bsh
 source /usr/libexec/systemcheck/check_man.bsh
+bash -n /usr/libexec/systemcheck/check_mount_options.bsh
+# shellcheck source=./check_mount_options.bsh
+source /usr/libexec/systemcheck/check_mount_options.bsh
 bash -n /usr/libexec/systemcheck/check_network_interfaces.bsh
 # shellcheck source=./check_network_interfaces.bsh
 source /usr/libexec/systemcheck/check_network_interfaces.bsh
@@ -500,6 +503,10 @@ systemcheck_main() {
 
    ## uses network: no
    systemcheck_run_function check_kernel_hardening_cmdline ## check_kernel_hardening_cmdline
+   systemcheck_progress_main_increment "1"
+
+   ## uses network: no
+   systemcheck_run_function check_mount_options ## check_mount_options
    systemcheck_progress_main_increment "1"
 
    ## uses network: no

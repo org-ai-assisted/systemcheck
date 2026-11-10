@@ -17,22 +17,39 @@ check_mount_options() {
    ## security-misc's remount-secure --check audits the live mount options
    ## against its own level-3 (strict) policy, read-only (no remount, no root).
    ## remount-secure is the single source of truth for the intended per-
-   ## mountpoint options, so systemcheck never re-encodes that table. Nonzero
-   ## exit means at least one mountpoint deviates.
+   ## mountpoint options, so systemcheck never re-encodes that table. Capture
+   ## stderr too so a run failure (e.g. an older security-misc without --check,
+   ## or a missing binary) is reported honestly, not as a mount result.
    rc=0
-   audit_output="$(remount-secure --check 3)" || rc=$?
+   audit_output="$(remount-secure --check 3 2>&1)" || rc=$?
 
    if [ "${rc}" = "0" ]; then
       run_if_verbose emit_status_line info "${status_text}" "" green "${status_ok}"
       return 0
    fi
 
+   ## Sanitize before embedding in the HTML message (defense in depth, matching
+   ## the sibling checks), even though remount-secure iterates a fixed set of
+   ## hardcoded mountpoints.
    deviations="$(printf '%s\n' "${audit_output}" | grep '^DEVIATION:' || true)"
+   deviations="$(sanitize-string -- 8192 "${deviations}")"
    skip_blurb="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
+
+   if [ -z "${deviations}" ]; then
+      ## Nonzero exit with no deviation lines: the audit could not RUN (binary
+      ## absent, too old for --check, or otherwise failed), which is not a
+      ## mount-hardening verdict. Report that honestly instead of a false
+      ## "Not hardened".
+      emit_status_line warning "${status_text}" "" orange "Indeterminate" \
+         "Could not verify mount options via <code>remount-secure --check</code> (exit ${rc}). Ensure <code>security-misc</code> is current.
+${skip_blurb}"
+      EXIT_CODE="1"
+      return 0
+   fi
+
    body="One or more mountpoints lack the expected hardening mount options (nosuid / nodev / noexec):
 ${deviations}
 ${skip_blurb}"
-
    emit_status_line warning "${status_text}" \
       "https://www.kicksecure.com/wiki/Dev/remount-secure" orange "Not hardened" \
       "${body}"

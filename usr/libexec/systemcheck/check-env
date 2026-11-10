@@ -3,6 +3,8 @@
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
 
+## style-ok: no-strict -- 'export LC_ALL=C' omitted by design.
+
 set -o errexit
 set -o nounset
 set -o pipefail

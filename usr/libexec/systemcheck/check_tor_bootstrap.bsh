@@ -3,6 +3,9 @@
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
 
+## Globals are set and consumed by 'systemcheck'.
+# shellcheck disable=SC2154,SC2034
+
 ## style-ok: no-strict
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble.
 
@@ -20,6 +23,8 @@ check_tor_bootstrap() {
    fi
 
    while true; do
+      check_tor_bootstrap_require_leaprun || break || return 0
+
       check_tor_bootstrap_init
 
       check_tor_bootstrap_grace || continue || return 0
@@ -37,6 +42,30 @@ check_tor_bootstrap() {
 
       break
    done
+}
+
+check_tor_bootstrap_require_leaprun() {
+   ## systemcheck reads Tor's bootstrap percentage and circuit status through
+   ## leaprun. Make sure it works so we don't loop and timeout if it's broken.
+   leaprun_useable_test
+
+   if [ "${use_leaprun}" = "yes" ]; then
+      return 0
+   fi
+
+   ## leaprun_useable_result does not need sanitized.
+   local MSG="<p>Tor Connection Result:
+<br/><b>Cannot query Tor's status.</b>
+<br/>systemcheck reads Tor's bootstrap and circuit state through leaprun, but
+leaprun is not usable for this account, so whether Tor is connected cannot be
+determined.
+<br/>
+<br/>Details: <code>${leaprun_useable_result}</code></p>"
+   emit_message error "${MSG}"
+   EXIT_CODE="1"
+   cleanup "1"
+   ## `break` check_tor_bootstrap loop.
+   return 1
 }
 
 check_tor_bootstrap_sleep() {

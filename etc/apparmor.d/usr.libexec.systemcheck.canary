@@ -34,6 +34,9 @@ include <tunables/global>
   /etc/whonix.d/** r,
   /run/sdwdate/success r,
   /run/desktop-config-dist/livecheck-lsblk r,
+  ## systemd-detect-virt container-detection input (the VM-detection /sys reads
+  ## are below); without it detect-virt is denied this probe and falls back.
+  /run/systemd/container r,
   /sys/devices/*/net/*/carrier r,
   /sys/devices/*/block/*/removable r,
   /sys/devices/virtual/block/dm-0/dm/name r,

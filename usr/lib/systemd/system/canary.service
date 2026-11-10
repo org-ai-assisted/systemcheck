@@ -48,8 +48,16 @@ RestrictRealtime=true
 SystemCallArchitectures=native
 RestrictNamespaces=true
 RestrictAddressFamilies=AF_UNIX AF_INET
-## TODO
-#SystemCallFilter=
+## W^X: ~memfd_create kills the anonymous memfd exec-bypass (MDWE above covers
+## anon W+X / mprotect-gained PROT_EXEC but not read-then-exec of a written
+## memfd); LockPersonality blocks the READ_IMPLIES_EXEC bypass (SystemCall-
+## Architectures=native above already closes the secondary-ABI one). NoExecPaths
+## marks the daemon's writable dirs non-executable, closing the file-backed exec
+## vector MDWE does not cover. canary-daemon is bash + curl: no JIT, no memfd,
+## never execs from a writable dir.
+LockPersonality=true
+SystemCallFilter=~memfd_create
+NoExecPaths=/var/lib/canary /run /tmp /var/tmp /dev/shm
 
 [Install]
 WantedBy=multi-user.target

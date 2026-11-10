@@ -20,8 +20,13 @@ check_mount_options() {
    ## mountpoint options, so systemcheck never re-encodes that table. Capture
    ## stderr too so a run failure (e.g. an older security-misc without --check,
    ## or a missing binary) is reported honestly, not as a mount result.
+   ##
+   ## NEWROOT="" forces the audit onto the LIVE root: remount-secure uses NEWROOT
+   ## as a path prefix for the dracut pre-pivot environment, and an inherited
+   ## (or injected) NEWROOT pointing at a nonexistent root would make every live
+   ## mount resolve away as N/A and fabricate a "hardened" pass.
    rc=0
-   audit_output="$(remount-secure --check 3 2>&1)" || rc=$?
+   audit_output="$(NEWROOT="" remount-secure --check 3 2>&1)" || rc=$?
 
    if [ "${rc}" = "0" ]; then
       run_if_verbose emit_status_line info "${status_text}" "" green "${status_ok}"

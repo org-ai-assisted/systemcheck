@@ -17,8 +17,8 @@ check_tempdir() {
    local id_of_user tmpdir_base tmpdir_base_parent tmpdir_expected var bad_vars status_text
    status_text="Temporary Directory Test Result"
    id_of_user="$(id --user)"
-   tmpdir_base="/tmp/user"
-   tmpdir_base_parent="${tmpdir_base%/*}"
+   tmpdir_base_parent="/tmp"
+   tmpdir_base="${tmpdir_base_parent}/user"
    tmpdir_expected="${tmpdir_base}/${id_of_user}"
 
    ## Check that each $TMP-family var is set to the expected value. An attacker
@@ -37,22 +37,23 @@ check_tempdir() {
       return 0
    fi
 
-   ## Check that the base tempdir base is the right kind of object and has
-   ## proper ownership and permissions. ${tmpdir_base} must be exactly mode 711
-   ## or the system will break or be insecure. In particular, a mode of 700 is
-   ## not permissible as it will break temp dirs for everyone.
-   ## The PARENT of ${tmpdir_base} (/tmp) must be root-owned and sticky (1777). If the
-   ## sticky bit is dropped (e.g. chmod 0777 /tmp), another unprivileged user can rename
-   ## ${tmpdir_base} and replace the whole hierarchy, defeating the per-user checks below.
+   ## Check that /tmp is the right kind of object and has proper ownership and
+   ## permissions. The mode must be exactly 1777 or the system will break or be
+   ## insecure. In particular, if the sticky bit is dropped, a malicious user
+   ## can swap out /tmp/user at will.
    if test -L "${tmpdir_base_parent}" || ! test -d "${tmpdir_base_parent}" \
       || ! [ "$(stat --format='%u' -- "${tmpdir_base_parent}")" = '0' ] \
       || ! [ "$(stat --format='%a' -- "${tmpdir_base_parent}")" = '1777' ]; then
       emit_status_line warning "${status_text}" "" orange "Unsafe" \
-         "The parent temp directory <code>${tmpdir_base_parent}</code> must be a non-symlink directory owned by <code>root</code> and sticky, with permissions set to <code>1777</code>."
+         "The parent temp directory <code>${tmpdir_base_parent}</code> must be a non-symlink directory owned by <code>root</code> and with permissions set to <code>1777</code>."
       EXIT_CODE="1"
       return 0
    fi
 
+   ## Check that /tmp/user is the right kind of object and has proper ownership
+   ## and permissions. ${tmpdir_base} must be exactly mode 711 or the system
+   ## will break or be insecure. In particular, a mode of 700 is not
+   ## permissible as it will break temp dirs for everyone.
    if test -L "${tmpdir_base}" || ! test -d "${tmpdir_base}" \
       || ! [ "$(stat --format='%u' -- "${tmpdir_base}")" = '0' ] \
       || ! [ "$(stat --format='%a' -- "${tmpdir_base}")" = '711' ]; then

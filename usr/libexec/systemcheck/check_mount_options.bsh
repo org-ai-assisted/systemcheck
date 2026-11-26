@@ -20,8 +20,10 @@ check_mount_options() {
    ## Force NEWROOT="" so the audit targets the LIVE root. remount-secure uses
    ## NEWROOT as a sysroot prefix (dracut); an inherited or injected NEWROOT
    ## pointing at a nonexistent root would let every mountpoint read as hardened
-   ## -- a fabricated pass.
-   audit_output="$(NEWROOT="" remount-secure --check 3 2>&1)" || rc=$?
+   ## -- a fabricated pass. No explicit level: audit against the configured
+   ## remount-secure level (drop-in), so a deliberately lowered level is not
+   ## reported as a deviation.
+   audit_output="$(NEWROOT="" remount-secure --check 2>&1)" || rc=$?
 
    if [ "${rc}" = "0" ]; then
       run_if_verbose emit_status_line info "${status_text}" "${link}" green "${status_ok}"

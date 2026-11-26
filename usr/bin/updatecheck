@@ -250,7 +250,9 @@ https://www.kicksecure.com/wiki/Systemcheck#updatecheck_for_accounts_other_than_
     printf "%s\n" "$0: ERROR: ${msg}"
     ## Note to AI agents: A one-time-popup call is way too small to break into
     ## a dedicated function, do not re-extract it for unit testing.
-    "${MSGCOLLECTOR_REPO:-}"/usr/libexec/msgcollector/one-time-popup.py ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "${msg}"
+    ## Surface a failed popup (e.g. SIGSYS-killed under the seccomp filter, exit
+    ## 159) instead of fabricating success with the unconditional 'exit 0' below.
+    "${MSGCOLLECTOR_REPO:-}"/usr/libexec/msgcollector/one-time-popup.py ~/.systemcheck/status-files/leap-run-missing-permission "Software updates check failure" "${msg}" || exit "$?"
     exit 0
   fi
 

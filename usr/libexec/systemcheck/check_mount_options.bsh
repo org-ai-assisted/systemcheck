@@ -17,7 +17,11 @@ check_mount_options() {
    link="https://www.kicksecure.com/wiki/Dev/remount-secure"
 
    rc=0
-   audit_output="$(remount-secure --check 3 2>&1)" || rc=$?
+   ## Force NEWROOT="" so the audit targets the LIVE root. remount-secure uses
+   ## NEWROOT as a sysroot prefix (dracut); an inherited or injected NEWROOT
+   ## pointing at a nonexistent root would let every mountpoint read as hardened
+   ## -- a fabricated pass.
+   audit_output="$(NEWROOT="" remount-secure --check 3 2>&1)" || rc=$?
 
    if [ "${rc}" = "0" ]; then
       run_if_verbose emit_status_line info "${status_text}" "${link}" green "${status_ok}"

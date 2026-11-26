@@ -34,6 +34,27 @@ run_if_verbose() {
    fi
 }
 
+## Drop --ignore-failed-unit units (systemcheck_ignore_failed_units_cli) from a
+## failed-units listing; echo the filtered text, '' when only whitespace remains
+## so callers can test emptiness. Mostly useful for CI. Each caller reads its own
+## unit list first. Shared by check_services and check_system_ready.
+systemcheck_drop_ignored_failed_units() {
+   local text ignore_unit
+   text="$1"
+   if [ -z "${systemcheck_ignore_failed_units_cli:-}" ]; then
+      printf '%s' "${text}"
+      return 0
+   fi
+   # shellcheck disable=SC2086
+   for ignore_unit in ${systemcheck_ignore_failed_units_cli}; do
+      text="$(printf '%s\n' "${text}" | grep --invert-match --fixed-strings -- "${ignore_unit}" || true)"
+   done
+   if [[ "${text}" =~ ^[[:space:]]*$ ]]; then
+      text=""
+   fi
+   printf '%s' "${text}"
+}
+
 ## Returns true if the only reason the system is degraded by
 ## systemd-modules-load is because 'tirdad' couldn't load under Secure Boot.
 systemcheck_modules_load_degrade_is_tirdad_sb_only() {

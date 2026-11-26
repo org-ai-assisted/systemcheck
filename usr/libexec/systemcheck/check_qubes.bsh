@@ -404,9 +404,7 @@ check_qubes_update_proxy_connectivity() {
 
 check_qubes_update_proxy() {
    if [ ! "${qubes_detected}" = "true" ]; then
-      ## Assigned for 'set -x' (xtrace) visibility only; not emitted.
-      ## FIXME: Don't we usually use 'true' for this?
-      local MSG="<p>Qubes UpdatesProxy Test Result: Skipped, because Qubes not detected.</p>"
+      true "Qubes UpdatesProxy Test Result: Skipped, because Qubes not detected."
       return 0
    fi
 

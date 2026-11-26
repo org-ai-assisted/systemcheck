@@ -43,17 +43,7 @@ check_services_do() {
 
    ## Drop CLI-ignored units (--ignore-failed-unit) from the failed-units list.
    ## Mostly useful for CI testing.
-   if [ -n "${systemcheck_ignore_failed_units_cli:-}" ]; then
-      local ignore_unit
-      # shellcheck disable=SC2086
-      for ignore_unit in ${systemcheck_ignore_failed_units_cli}; do
-         systemctl_output_without_legend="$(printf '%s\n' "${systemctl_output_without_legend}" | grep --invert-match --fixed-strings -- "${ignore_unit}" || true)"
-      done
-      ## After filtering, treat a whitespace-only result as "no failed units".
-      if [[ "${systemctl_output_without_legend}" =~ ^[[:space:]]*$ ]]; then
-         systemctl_output_without_legend=""
-      fi
-   fi
+   systemctl_output_without_legend="$(systemcheck_drop_ignored_failed_units "${systemctl_output_without_legend}")"
 
    if [ "${systemctl_output_without_legend}" = "" ]; then
       local MSG

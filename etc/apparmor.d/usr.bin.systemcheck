@@ -105,6 +105,11 @@ include <tunables/global>
   /etc/perl/sitecustomize.pl r,
   /etc/privleap/** r,
   /etc/python*/sitecustomize.py r,
+  ## 'remount-secure --get-effective-level' / '--check' (run rix below) read the
+  ## drop-in level config; without this the confined query fails closed to level 3
+  ## and hides a lower configured level.
+  /etc/remount-secure.d/ r,
+  /etc/remount-secure.d/** r,
   /etc/resolv.conf r,
   /etc/safe-rm.conf r,
   /etc/sddm.conf r,
@@ -226,6 +231,8 @@ include <tunables/global>
   /usr/libexec/uwt/uwtexec rix,
   /usr/libexec/uwt/uwtwrapper rix,
   /usr/libexec/pam-tmpdir/pam-tmpdir-helper rix,
+  /usr/local/etc/remount-secure.d/ r,
+  /usr/local/etc/remount-secure.d/** r,
   /usr/local/etc/safe-rm.conf r,
   /usr/local/etc/torrc.d/ r,
   /usr/local/etc/torrc.d/* r,

@@ -11,10 +11,41 @@
 
 check_mount_options() {
    local status_text audit_output rc deviation_list_str \
-      if_you_know_what_you_are_doing_msg body link
+      if_you_know_what_you_are_doing_msg body link level level_status_text \
+      level_body
 
    status_text="Mount Options Hardening Test Result"
    link="https://www.kicksecure.com/wiki/Dev/remount-secure"
+
+   ## Surface the configured remount-secure level (0-3; 3 = most restrictive).
+   ## '--get-level' is a read-only, unprivileged query that fails closed to 3.
+   ## A level below 3 is a deliberate admin choice, so interactively it is an
+   ## orange informational notice, not a hard failure; under '--ci' it is a
+   ## hard failure (non-zero exit) so a lowered level cannot ship unnoticed.
+   level_status_text="Mount Options Hardening Level"
+   level="$(remount-secure --get-level 2>/dev/null)" || level=""
+   case "${level}" in
+   3)
+      run_if_verbose emit_status_line info "${level_status_text}" "${link}" \
+         green "Level 3 (most restrictive)"
+      ;;
+   0|1|2)
+      level_body="The configured remount-secure level is ${level}; the most restrictive level is 3. A lower level applies fewer noexec/nosuid/nodev protections to writable mounts.
+$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
+      emit_status_line info "${level_status_text}" "${link}" orange \
+         "Level ${level} (below 3)" "${level_body}"
+      if [ "${ci:-false}" = "true" ]; then
+         EXIT_CODE="1"
+      fi
+      ;;
+   *)
+      emit_status_line info "${level_status_text}" "${link}" orange "Indeterminate" \
+         "Could not read the configured level via <code>remount-secure --get-level</code>."
+      if [ "${ci:-false}" = "true" ]; then
+         EXIT_CODE="1"
+      fi
+      ;;
+   esac
 
    rc=0
    ## Force NEWROOT="" so the audit targets the LIVE root. remount-secure uses

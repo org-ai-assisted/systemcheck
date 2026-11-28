@@ -59,22 +59,26 @@ ${remediation}</p>"
 }
 
 check_privilege_escalation_tools() {
-   ## leaprun is mandatory for systemcheck.
-   ## systemcheck has been fully ported to privleap.
-   ## privleap is a dependency of systemcheck.
-   ## Therefore test leaprun in any case.
+   ## privleap is a systemcheck dependency; verify the privleap stack in any case
+   ## (non-setuid socket client -- unaffected by the seccomp sandbox).
    check_privilege_escalation_tool_do privleapd --check-config
    check_privilege_escalation_tool_do leaprun check-privleap
    check_privilege_escalation_tool_do leaprun check-privleap-environment-variables
    check_privilege_escalation_tool_do leaprun check-sudo
 
-   ## pkexec is verified THROUGH privleap (leaprun check-pkexec), not invoked
-   ## directly. systemcheck runs under no_new_privs hardening, where a direct
-   ## setuid pkexec cannot elevate and would false-fail; privleapd is a
-   ## non-setuid socket client unaffected by no_new_privs and runs pkexec as
-   ## root (bypassing the polkit agent), so the check works headless in every
-   ## regime. Gated by use_pkexec so a system without pkexec is not flagged.
+   ## Verify the USER-FACING setuid path DIRECTLY as well. The leaprun checks run
+   ## the tool through root-owned privleapd (effective UID 0), where sudo/pkexec
+   ## SKIP their setuid-installation self-check, so a stripped setuid bit is
+   ## invisible to them -- the direct probes run the tool AS THE USER and catch it.
+   ## systemcheck no longer runs under no_new_privs (which would make a setuid
+   ## exec abort), so these run normally in both autostart and interactive modes.
+   if [ "${use_sudo}" = "yes" ]; then
+      check_privilege_escalation_tool_do sudo --non-interactive -- /usr/bin/test -x /usr/bin/test
+   fi
+
    if [ "${use_pkexec}" = "yes" ]; then
+      check_privilege_escalation_tool_do pkexec /usr/libexec/systemcheck/pkexec-test
+      ## Separate privleap-pkexec path check, symmetric with check-sudo above.
       check_privilege_escalation_tool_do leaprun check-pkexec
    fi
 }

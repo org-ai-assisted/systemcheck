@@ -16,20 +16,19 @@ source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
 
 systemcheck_confine_maybe() {
   ## Re-exec an unconfined run inside a transient 'systemd --user' scope carrying
-  ## the SAME W^X hardening as systemcheck.service (keep the two property sets in
-  ## sync; a dist-ai drift guard enforces it), so a manually started run is
-  ## sandboxed like the autostart one. Best-effort: when no user service manager
-  ## is reachable (root, or no login session) the run continues UNCONFINED rather
-  ## than refuse to run -- the hardening self-check reports that case.
+  ## the SAME W^X seccomp hardening as systemcheck.service (keep the two property
+  ## sets in sync; a dist-ai drift guard enforces it), so a manually started run
+  ## is sandboxed like the autostart one. Best-effort: when no user service
+  ## manager is reachable (root, or no login session) the run continues
+  ## UNCONFINED rather than refuse to run -- the hardening self-check reports it.
+  ## NoNewPrivileges is deliberately NOT applied (see systemcheck.service): under
+  ## no_new_privs the kernel denies the AppArmor profile's helper transitions
+  ## (man Px, pw-play Ux), so transition-based checks would false-fail.
   ## Skip when:
-  ##  - SYSTEMCHECK_HARDENED=1 : this IS the re-exec'd confined run (loop guard).
-  ##  - INVOCATION_ID set      : already inside a systemd unit (the autostart
-  ##                             service is already W^X-hardened).
+  ##  - SYSTEMCHECK_HARDENED=1 : this IS the re-exec'd confined run, or the
+  ##                             autostart service (it sets the sentinel); loop guard.
   ##  - SYSTEMCHECK_CONFINE=0  : explicit opt-out.
   if [ "${SYSTEMCHECK_HARDENED:-}" = "1" ]; then
-    return 0
-  fi
-  if [ -n "${INVOCATION_ID:-}" ]; then
     return 0
   fi
   if [ "${SYSTEMCHECK_CONFINE:-1}" = "0" ]; then
@@ -43,23 +42,39 @@ systemcheck_confine_maybe() {
     return 0
   fi
 
+  ## PTY only when ALL THREE std fds are terminals; otherwise --pipe, so a
+  ## redirected stdin/stdout/stderr is honored (a --pty reconnects all three to
+  ## the controlling terminal, dropping the redirection).
   local io_mode
-  if [ -t 0 ] && [ -t 1 ]; then
+  if [ -t 0 ] && [ -t 1 ] && [ -t 2 ]; then
     io_mode="--pty"
   else
     io_mode="--pipe"
   fi
 
+  ## Forward the CALLER's environment: 'systemd-run --user' otherwise runs with
+  ## the user manager's environment, which would drop caller vars and could let a
+  ## manager-set var steer systemcheck. SYSTEMCHECK_HARDENED is appended last so
+  ## it wins regardless of the caller's value.
+  local -a setenv_args=()
+  local env_entry
+  while IFS= read -r -d '' env_entry; do
+    setenv_args+=( "--setenv=${env_entry}" )
+  done < <(env -0)
+
   ## style-ok: R-103  -- deliberate re-exec into the confined scope (the point).
   ## style-ok: R-170  -- NoExecPaths below is a systemd directive value that MUST
   ##                     match systemcheck.service literally, not a shell temp path.
+  ## --expand-environment=no: the manager must NOT expand $VAR in the forwarded
+  ## command arguments (they are the user's literal CLI args).
   exec systemd-run \
     --user \
     "${io_mode}" \
     --wait \
     --collect \
     --quiet \
-    --property=NoNewPrivileges=yes \
+    --expand-environment=no \
+    "${setenv_args[@]}" \
     --property=MemoryDenyWriteExecute=true \
     --property=SystemCallArchitectures=native \
     --property=LockPersonality=true \

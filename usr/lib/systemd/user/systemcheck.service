@@ -9,7 +9,19 @@ Type=exec
 ExecStart=systemcheck --autostart
 RemainAfterExit=true
 
-NoNewPrivileges=yes
+## Already the hardened run: tells the launcher not to re-confine (it keys on
+## this sentinel, not INVOCATION_ID, which every unit would set).
+Environment=SYSTEMCHECK_HARDENED=1
+
+## NoNewPrivileges is intentionally NOT set. systemcheck's AppArmor profile uses
+## domain-transition rules (man Px, pw-play rUx) to exec helpers; no_new_privs
+## makes the kernel DENY any Px/Ux profile-replace transition, so those checks
+## would false-fail ("Broken"). W^X here comes from the seccomp directives below
+## (MemoryDenyWriteExecute + SystemCallFilter -> Seccomp: 2), which systemd
+## applies as the privileged manager without needing the no_new_privs bit; the
+## profile still confines the process. (Keeping NNP would require rewriting the
+## profile's transitions as ix/stacked rules -- a divergence from upstream.)
+#NoNewPrivileges=yes
 MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 LockPersonality=true

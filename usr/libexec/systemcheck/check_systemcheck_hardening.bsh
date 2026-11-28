@@ -10,14 +10,18 @@
 ## style-ok: R-003
 ## Sourced fragment; 'systemcheck' owns the strict-mode preamble (3-space, as siblings).
 
-no_new_privs_active() {
-   ## /proc/self/status reports 'NoNewPrivs: 1' once PR_SET_NO_NEW_PRIVS is set.
-   ## systemcheck.service is W^X-hardened and the interactive run re-execs into a
-   ## transient W^X 'systemd --user' scope; either makes systemd imply
-   ## NoNewPrivileges=yes, so a confined systemcheck reports NoNewPrivs: 1.
-   local no_new_privs_value
-   no_new_privs_value="$(grep -- 'NoNewPrivs' /proc/self/status 2>/dev/null | awk '{ print $2 }')" || true
-   [ "${no_new_privs_value}" = "1" ]
+seccomp_filter_active() {
+   ## /proc/self/status 'Seccomp: 2' == SECCOMP_MODE_FILTER: a seccomp filter is
+   ## installed. systemcheck's W^X confinement IS a seccomp filter
+   ## (MemoryDenyWriteExecute + SystemCallFilter), applied by systemd as the
+   ## privileged manager -- so 'Seccomp: 2' is the signal the sandbox took effect.
+   ## NOT keyed on no_new_privs: that bit is incompatible with the AppArmor
+   ## profile's helper transitions and is deliberately not set (see the launcher
+   ## and systemcheck.service). The proc path is overridable for tests only.
+   local status_path seccomp_value
+   status_path="${SYSTEMCHECK_PROC_STATUS:-/proc/self/status}"
+   seccomp_value="$(grep -- 'Seccomp:' "${status_path}" 2>/dev/null | awk '{ print $2 }')" || true
+   [ "${seccomp_value}" = "2" ]
 }
 
 check_systemcheck_hardening() {
@@ -25,14 +29,14 @@ check_systemcheck_hardening() {
    ## interactive run best-effort, so a run that could not be confined (no user
    ## service manager reachable) runs UNHARDENED. Report that honestly rather
    ## than let it pass silently.
-   if no_new_privs_active; then
-      local MSG="<p>Hardening Check Result: systemcheck is running confined (no_new_privs active). ${status_ok}</p>"
+   if seccomp_filter_active; then
+      local MSG="<p>Hardening Check Result: systemcheck is running confined (seccomp W^X filter active). ${status_ok}</p>"
       run_if_verbose emit_message info "${MSG}"
       return 0
    fi
 
-   local MSG="<p>Hardening Check Result: systemcheck is running WITHOUT no_new_privs confinement.
+   local MSG="<p>Hardening Check Result: systemcheck is running WITHOUT its seccomp W^X sandbox.
 <br></br>
-The transient systemd hardening scope did not apply -- most likely no user service manager was reachable. The checks still run, but the W^X / seccomp sandbox is not active for this run.</p>"
+The transient systemd hardening scope did not apply -- most likely no user service manager was reachable. The checks still run, but the W^X seccomp sandbox is not active for this run.</p>"
    emit_message warning "${MSG}"
 }

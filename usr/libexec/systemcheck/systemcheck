@@ -301,6 +301,7 @@ systemcheck_progress_main_open() {
 systemcheck_main() {
    #set -x
    set -o errexit
+   set -o nounset
    set -o pipefail
    set -o errtrace
 
@@ -316,11 +317,29 @@ systemcheck_main() {
    [ -v GUI ] || GUI=""
    [ -v BUG ] || BUG=""
    [ -v deprecated_derivative ] || deprecated_derivative=""
+   [ -v systemcheck_autostart_mode ] || systemcheck_autostart_mode="false"
    [ -v systemcheck_skip_functions ] || systemcheck_skip_functions=""
    [ -v systemcheck_skip_functions_cli ] || systemcheck_skip_functions_cli=""
    [ -v systemcheck_ignore_failed_units_cli ] || systemcheck_ignore_failed_units_cli=""
    [ -v systemcheck_journal_ignore_fixed_cli ] || systemcheck_journal_ignore_fixed_cli=""
    [ -v systemcheck_journal_ignore_match_cli ] || systemcheck_journal_ignore_match_cli=""
+   ## Cross-check detection flag (set by check_network_interfaces); default a
+   ## baseline so a consumer check run alone or before it does not read it unset.
+   [ -v systemcheck_external_network_found ] || systemcheck_external_network_found="unknown"
+   ## CLI flag vars set only in their parse_cmd option arm; default to the same
+   ## empty value the pre-nounset unset read yielded.
+   [ -v FUNCTION ] || FUNCTION=""
+   [ -v DEL_TMP ] || DEL_TMP=""
+   [ -v leak_tests ] || leak_tests=""
+   [ -v show_ip ] || show_ip=""
+   ## Progress-bar id: set only when a progress bar is opened; cleanup reads it
+   ## to close one, so a run that opened none must still see it defined.
+   [ -v progressbaridx ] || progressbaridx=""
+   ## Overall exit status: individual checks raise it to non-zero on failure;
+   ## initialize the success baseline so cleanup can read it on a clean run.
+   [ -v EXIT_CODE ] || EXIT_CODE="0"
+   ## Optional env override to skip the root check.
+   [ -v ROOT_CHECK ] || ROOT_CHECK=""
 
    ## This MUST be done before parse_cmd_options is called, or systemcheck
    ## may execute arbitrary Bash commands present in the 'verbose' env var.

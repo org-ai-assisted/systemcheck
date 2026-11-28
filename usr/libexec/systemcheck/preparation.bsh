@@ -226,6 +226,7 @@ virtualizer_detection() {
    ## (Used by check_pvclock.)
 
    systemcheck_platform_or_virtualizer_known=false
+   systemcheck_virtualizer_tool_unavailable="false"
 
    if ! has "${systemcheck_virt_detection_tool}" ; then
       systemcheck_virtualizer_tool_unavailable="true"

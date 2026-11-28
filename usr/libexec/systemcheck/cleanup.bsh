@@ -21,7 +21,7 @@
 ## to manually use apt-get, it would show an error because the apt-get lockfile
 ## would still exist.
 maybe_kill_apt_get_update() {
-   if [ "${apt_get_update_pid}" = "" ]; then
+   if [ "${apt_get_update_pid:-}" = "" ]; then
       ## Pid never set. Either the check_operating_system check has been disabled,
       ## or signal received earlier or this isn't systemcheck. Either way.
       ## Nothing to do.
@@ -83,7 +83,7 @@ ex_funct() {
       ## kill $lastpid (if running)
       process_killer_helper
 
-      lastpid="${tail_pid}"
+      lastpid="${tail_pid:-}"
       ## kill $lastpid (if running)
       process_killer_helper
    fi
@@ -100,8 +100,11 @@ ex_funct() {
       output_status_exit_code="0"
       ${output_general} "${output_opts[@]}" --identifier "${IDENTIFIER}" --status --messagecli || { output_status_exit_code="$?" ; true; };
 
+      ## Default so the close-progress-bar check below is defined even when no
+      ## bar was opened (progressbaridx empty).
+      local progress_bar_open
+      progress_bar_open="1"
       if [ ! "${progressbaridx}" = "" ]; then
-         local progress_bar_open
          progress_bar_open="0"
          ${output_general} "${output_opts[@]}" --identifier "${IDENTIFIER}" --status --progressbaridx "${progressbaridx}" --progressbarxprogresstxtexisting || { progress_bar_open="$?" ; true; };
       fi
@@ -137,7 +140,7 @@ ex_funct() {
 
    if [ -z "${EXIT_CODE}" ] || [ "${EXIT_CODE}" = '0' ]; then
       ## 'exit_code' inherited from error_handler
-      if [ -n "${exit_code}" ]; then
+      if [ -n "${exit_code:-}" ]; then
          EXIT_CODE="${exit_code}"
       else
          EXIT_CODE="0"

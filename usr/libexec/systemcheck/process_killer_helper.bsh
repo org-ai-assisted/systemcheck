@@ -13,12 +13,12 @@ process_killer_helper() {
       ## No error available yet. Implementing one.
       error_handler() {
          # shellcheck disable=SC2317
-         printf '%s\n' "Error detected! BASH_COMMAND: ${BASH_COMMAND} | exit_code: ${exit_code}"
+         printf '%s\n' "Error detected! BASH_COMMAND: ${BASH_COMMAND} | exit_code: ${exit_code:-}"
       }
    fi
    trap "error_handler" ERR
 
-   if [ "${lastpid}" = "" ]; then
+   if [ "${lastpid:-}" = "" ]; then
       return 0
    fi
 

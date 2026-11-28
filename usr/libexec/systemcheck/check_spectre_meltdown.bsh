@@ -17,10 +17,10 @@ check_spectre_meltdown() {
    if_you_know_what_you_are_doing_msg="$(if_you_know_what_you_are_doing_funct "${FUNCNAME[0]}")"
 
    if [ "${verbose}" -ge "2" ]; then
-      [ -n "${spectre_meltdown_check}" ] || spectre_meltdown_check="true"
+      [ -n "${spectre_meltdown_check:-}" ] || spectre_meltdown_check="true"
    fi
 
-   [ -n "${spectre_meltdown_check}" ] || spectre_meltdown_check="false"
+   [ -n "${spectre_meltdown_check:-}" ] || spectre_meltdown_check="false"
 
    if [ "${spectre_meltdown_check}" = "false" ]; then
       local MSG="<p>Spectre Meltdown Test: skipping since spectre_meltdown_check=<code>${spectre_meltdown_check}</code>, ${status_ok}</p>"

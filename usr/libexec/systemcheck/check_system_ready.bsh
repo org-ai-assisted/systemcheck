@@ -45,7 +45,7 @@ check_system_ready_shared() {
       ## Discard output of using '&>/dev/null' so we can launch into the background
       ## and check later by looking at file '/run/helper-scripts/system-ready-check' instead.
       result="$("${@}" 2>&1)" || true
-      [ -n "${result}" ] || result="Empty."
+      [ -n "${result:-}" ] || result="Empty."
 
       if [ "${result}" = "running" ]; then
          local MSG="<p>System ready check (${type}) Result: ${status_ok}</p>"

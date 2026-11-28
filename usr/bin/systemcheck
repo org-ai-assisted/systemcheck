@@ -1,31 +1,50 @@
-#!/bin/bash
+#!/bin/bash -e
 
 ## Copyright (C) 2012 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
 
-## style-ok: no-strict -- 'export LC_ALL=C' omitted by design.
+## provides was_executed
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/check_runtime.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/check_runtime.bsh || true
+if ! declare -F was_executed >/dev/null; then
+  printf '%s\n' "$0: ERROR: cannot source check_runtime.bsh!" >&2
+  exit 1
+fi
 
-#set -x
-set -o errexit
-set -o nounset
-set -o pipefail
-set -o errtrace
-shopt -s inherit_errexit
-shopt -s shift_verbose
+main() {
+  set -o errexit
+  set -o nounset
+  set -o pipefail
+  set -o errtrace
+  shopt -s inherit_errexit
+  shopt -s shift_verbose
+  export LC_ALL=C
 
-## Useful when xtrace ("set -x") is enabled and running in the background
-## (such as if started as GUI from start menu) to log all xtrace to a log file.
-#[[ -v TMP ]] || TMP="/TMP"
-#safe-rm -f -- "/$TMP/systemcheck-debug.txt"
-#exec 5>&1 1>> "/$TMP/systemcheck-debug.txt"
-#exec 6>&2 2>> "/$TMP/systemcheck-debug.txt"
+  #set -x
 
-source /usr/libexec/helper-scripts/lockfile.sh
+  ## Useful when xtrace ("set -x") is enabled and running in the background
+  ## (such as if started as GUI from start menu) to log all xtrace to a log file.
+  #[[ -v TMP ]] || TMP="/TMP"
+  #safe-rm -f -- "/$TMP/systemcheck-debug.txt"
+  #exec 5>&1 1>> "/$TMP/systemcheck-debug.txt"
+  #exec 6>&2 2>> "/$TMP/systemcheck-debug.txt"
 
-if [ -o xtrace ]; then
-  ## NOTE: Not using 'bash -x' as this would disable AppArmor.
-  ## XXX: Might add a superfluous ':xtrace'.
-  env SHELLOPTS="${SHELLOPTS-}:xtrace" /usr/libexec/systemcheck/systemcheck "$@"
-else
-  /usr/libexec/systemcheck/systemcheck "$@"
+  ## Self-lock. Sourcing lockfile.sh re-execs this script under flock, so it must
+  ## stay behind the was_executed guard -- a test sourcing the launcher must not
+  ## acquire a lock or re-exec.
+  # shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/lockfile.sh
+  source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/lockfile.sh
+
+  if [ -o xtrace ]; then
+    ## NOTE: Not using 'bash -x' as this would disable AppArmor.
+    ## XXX: Might add a superfluous ':xtrace'.
+    env SHELLOPTS="${SHELLOPTS-}:xtrace" /usr/libexec/systemcheck/systemcheck "$@"
+  else
+    /usr/libexec/systemcheck/systemcheck "$@"
+  fi
+}
+
+## Only auto-run when executed, not when sourced (unit tests source it).
+if was_executed "${BASH_SOURCE[0]}"; then
+  main "$@"
 fi

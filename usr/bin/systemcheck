@@ -10,6 +10,65 @@ if ! declare -F was_executed >/dev/null; then
   printf '%s\n' "$0: ERROR: cannot source check_runtime.bsh!" >&2
   exit 1
 fi
+## provides has
+# shellcheck source=../../../helper-scripts/usr/libexec/helper-scripts/has.bsh
+source "${HELPER_SCRIPTS_PATH:-}"/usr/libexec/helper-scripts/has.bsh
+
+systemcheck_confine_maybe() {
+  ## Re-exec an unconfined run inside a transient 'systemd --user' scope carrying
+  ## the SAME W^X hardening as systemcheck.service (keep the two property sets in
+  ## sync; a dist-ai drift guard enforces it), so a manually started run is
+  ## sandboxed like the autostart one. Best-effort: when no user service manager
+  ## is reachable (root, or no login session) the run continues UNCONFINED rather
+  ## than refuse to run -- the hardening self-check reports that case.
+  ## Skip when:
+  ##  - SYSTEMCHECK_HARDENED=1 : this IS the re-exec'd confined run (loop guard).
+  ##  - INVOCATION_ID set      : already inside a systemd unit (the autostart
+  ##                             service is already W^X-hardened).
+  ##  - SYSTEMCHECK_CONFINE=0  : explicit opt-out.
+  if [ "${SYSTEMCHECK_HARDENED:-}" = "1" ]; then
+    return 0
+  fi
+  if [ -n "${INVOCATION_ID:-}" ]; then
+    return 0
+  fi
+  if [ "${SYSTEMCHECK_CONFINE:-1}" = "0" ]; then
+    return 0
+  fi
+  if ! has systemd-run; then
+    return 0
+  fi
+  ## Reachable user manager? (root or a sessionless environment has none.)
+  if ! systemctl --user show-environment >/dev/null 2>&1; then
+    return 0
+  fi
+
+  local io_mode
+  if [ -t 0 ] && [ -t 1 ]; then
+    io_mode="--pty"
+  else
+    io_mode="--pipe"
+  fi
+
+  ## style-ok: R-103  -- deliberate re-exec into the confined scope (the point).
+  ## style-ok: R-170  -- NoExecPaths below is a systemd directive value that MUST
+  ##                     match systemcheck.service literally, not a shell temp path.
+  exec systemd-run \
+    --user \
+    "${io_mode}" \
+    --wait \
+    --collect \
+    --quiet \
+    --property=NoNewPrivileges=yes \
+    --property=MemoryDenyWriteExecute=true \
+    --property=SystemCallArchitectures=native \
+    --property=LockPersonality=true \
+    --property="SystemCallFilter=~memfd_create" \
+    --property=SystemCallErrorNumber=EPERM \
+    --property="NoExecPaths=/tmp /var/tmp /dev/shm" \
+    --setenv=SYSTEMCHECK_HARDENED=1 \
+    -- /usr/bin/systemcheck "$@"
+}
 
 main() {
   set -o errexit
@@ -19,6 +78,10 @@ main() {
   shopt -s inherit_errexit
   shopt -s shift_verbose
   export LC_ALL=C
+
+  ## Confine this run (W^X) unless already confined / no user manager; re-execs
+  ## and does not return when it confines.
+  systemcheck_confine_maybe "$@"
 
   #set -x
 

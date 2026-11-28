@@ -9,6 +9,7 @@ Type=exec
 ExecStart=systemcheck --autostart
 RemainAfterExit=true
 
+NoNewPrivileges=yes
 MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 LockPersonality=true

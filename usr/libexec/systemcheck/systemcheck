@@ -190,6 +190,7 @@ source /usr/libexec/systemcheck/check_systemd_clock.bsh
 bash -n /usr/libexec/systemcheck/check_system_ready.bsh
 # shellcheck source=./check_system_ready.bsh
 source /usr/libexec/systemcheck/check_system_ready.bsh
+source /usr/libexec/systemcheck/check_systemcheck_hardening.bsh
 bash -n /usr/libexec/systemcheck/check_tempdir.bsh
 # shellcheck source=./check_tempdir.bsh
 source /usr/libexec/systemcheck/check_tempdir.bsh
@@ -388,6 +389,9 @@ systemcheck_main() {
    ## uses network: no
    systemcheck_run_function check_privleap_group_membership ## check_privilege_escalation_tool
    systemcheck_run_function check_privilege_escalation_tools ## check_privilege_escalation_tool
+
+   ## uses network: no
+   systemcheck_run_function check_systemcheck_hardening ## check_systemcheck_hardening
 
    ## uses network: no
    systemcheck_run_function show_versions ## show_versions

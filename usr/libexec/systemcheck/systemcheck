@@ -316,6 +316,7 @@ systemcheck_main() {
    [ -v GUI ] || GUI=""
    [ -v BUG ] || BUG=""
    [ -v deprecated_derivative ] || deprecated_derivative=""
+   [ -v systemcheck_skip_functions ] || systemcheck_skip_functions=""
    [ -v systemcheck_skip_functions_cli ] || systemcheck_skip_functions_cli=""
    [ -v systemcheck_ignore_failed_units_cli ] || systemcheck_ignore_failed_units_cli=""
    [ -v systemcheck_journal_ignore_fixed_cli ] || systemcheck_journal_ignore_fixed_cli=""

@@ -63,9 +63,9 @@ cleanup_files() {
 
 ex_funct() {
    ## In case parse_cmd failed.
-   [ -n "${output_cli:-}" ] || output_cli="true"
-   [ -n "${output_x:-}" ] || output_x="true"
-   [ -n "${output_general:-}" ] || output_general="true"
+   [ -v output_cli ] || output_cli="true"
+   [ -v output_x ] || output_x="true"
+   [ -v output_general ] || output_general="true"
 
    if [ ! "${SIGNAL_TYPE}" = "NONE" ]; then
       printf '%s\n' "${SCRIPTNAME}: signal ${SIGNAL_TYPE} received. Cleaning up... Exiting..."

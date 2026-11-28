@@ -220,7 +220,7 @@ show_systemcheck_header() {
 }
 
 virtualizer_detection() {
-   [ -n "${systemcheck_virt_detection_tool:-}" ] || systemcheck_virt_detection_tool="systemd-detect-virt"
+   [ -v systemcheck_virt_detection_tool ] || systemcheck_virt_detection_tool="systemd-detect-virt"
 
    ## Global variable systemcheck_virtualizer_detected.
    ## (Used by check_pvclock.)
@@ -398,7 +398,7 @@ emit_message() {
 }
 
 systemcheck_run_function() {
-   case ${systemcheck_skip_functions:-} in
+   case ${systemcheck_skip_functions} in
    *"$@"*) printf '%s\n' "INFO: Skipping $* because systemcheck_skip_functions includes it."
            return 0
            ;;
@@ -495,7 +495,7 @@ get_local_derivative_version() {
 
 preparation() {
    ## For package 'msgcollector' function 'msgdispatcher_init'.
-   [ -n "${who_ami:-}" ] || who_ami="$(whoami)"
+   [ -v who_ami ] || who_ami="$(whoami)"
 
    ## required by virtualizer_detection
    if has qubesdb-read ; then
@@ -655,7 +655,7 @@ preparation() {
       TITLE_CLI="${VM} | $(LC_ALL=C date --utc)"
    fi
 
-   [ -n "${silent:-}" ] || silent="0"
+   [ -v silent ] || silent="0"
 
    TITLE_X="${IDENTIFIER} | ${VM}${qubes_title_extra}"
 

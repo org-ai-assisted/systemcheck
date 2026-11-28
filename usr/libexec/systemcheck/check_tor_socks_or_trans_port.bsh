@@ -149,7 +149,8 @@ check_tor_socks_or_trans_port() {
 
       local MSG="${connection_failed_msg}
 (curl exit code: ${curl_status_message})</p>"
-      if [ "${type}" = "" ]; then
+      ## 'type' is an optional inherited severity; default it nounset-safe.
+      if [ "${type:-}" = "" ]; then
          type=error
       fi
       if [ "${type}" = "error" ]; then

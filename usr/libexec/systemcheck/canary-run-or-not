@@ -10,6 +10,10 @@
 
 canary_config_folders=(/etc/systemcheck.d /usr/local/etc/systemcheck.d /usr/local/etc/whonix.d /etc/whonix.d)
 
+## Default: run the canary unless a setting below disables it. '[ -v ]'
+## (not a bare assignment) so a caller's deliberate preset is preserved.
+[ -v canary_run ] || canary_run=true
+
 if grep -r '^whonixcheck_skip_functions+=" download_whonix_news "' -- "${canary_config_folders[@]}" >/dev/null 2>&1 ; then
     true "INFO: Legacy disabled in settings. Doing nothing. Exiting."
     canary_run=false

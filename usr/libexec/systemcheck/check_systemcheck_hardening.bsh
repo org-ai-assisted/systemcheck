@@ -1,0 +1,42 @@
+#!/bin/bash
+
+## Copyright (C) 2026 - 2026 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
+## See the file COPYING for copying conditions.
+
+## Globals are set and consumed by 'systemcheck'.
+# shellcheck disable=SC2154
+
+## style-ok: no-strict
+## style-ok: R-003
+## Sourced fragment; 'systemcheck' owns the strict-mode preamble (3-space, as siblings).
+
+seccomp_filter_active() {
+   ## /proc/self/status 'Seccomp: 2' == SECCOMP_MODE_FILTER: a seccomp filter is
+   ## installed. systemcheck's W^X confinement IS a seccomp filter
+   ## (MemoryDenyWriteExecute + SystemCallFilter), applied by systemd as the
+   ## privileged manager -- so 'Seccomp: 2' is the signal the sandbox took effect.
+   ## NOT keyed on no_new_privs: that bit is incompatible with the AppArmor
+   ## profile's helper transitions and is deliberately not set (see the launcher
+   ## and systemcheck.service). The proc path is overridable for tests only.
+   local status_path seccomp_value
+   status_path="${SYSTEMCHECK_PROC_STATUS:-/proc/self/status}"
+   seccomp_value="$(grep -- 'Seccomp:' "${status_path}" 2>/dev/null | awk '{ print $2 }')" || true
+   [ "${seccomp_value}" = "2" ]
+}
+
+check_systemcheck_hardening() {
+   ## Verify the confinement actually took effect: the launcher confines an
+   ## interactive run best-effort, so a run that could not be confined (no user
+   ## service manager reachable) runs UNHARDENED. Report that honestly rather
+   ## than let it pass silently.
+   if seccomp_filter_active; then
+      local MSG="<p>Hardening Check Result: systemcheck is running confined (seccomp W^X filter active). ${status_ok}</p>"
+      run_if_verbose emit_message info "${MSG}"
+      return 0
+   fi
+
+   local MSG="<p>Hardening Check Result: systemcheck is running WITHOUT its seccomp W^X sandbox.
+<br></br>
+The transient systemd hardening scope did not apply -- most likely no user service manager was reachable. The checks still run, but the W^X seccomp sandbox is not active for this run.</p>"
+   emit_message warning "${MSG}"
+}

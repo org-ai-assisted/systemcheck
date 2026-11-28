@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -e
 
 ## Copyright (C) 2025 - 2025 ENCRYPTED SUPPORT LLC <adrelanos@whonix.org>
 ## See the file COPYING for copying conditions.
@@ -135,18 +135,13 @@ check_service_logs() {
   fi
 
   ## Neutralize HTML metacharacters in untrusted journal content BEFORE
-  ## br_add_to_file bakes in '<br />' tags. This output is later rendered in
-  ## the GUI; stcatn (applied afterwards) strips ANSI, not HTML.
+  ## br_add inserts '<br />' tags. This output is later rendered in the GUI;
+  ## stcatn (piped first) strips ANSI, not HTML.
   sanitize-string -- nolimit < "${TMPDIR}/journalctl_match_filtered.txt" > "${TMPDIR}/journalctl_match_filtered.txt.tmp"
   mv -- "${TMPDIR}/journalctl_match_filtered.txt.tmp" "${TMPDIR}/journalctl_match_filtered.txt"
 
-  ## Creates file: '$TMPDIR/journalctl_match_filtered.txt_br'
-  br_add_to_file "${TMPDIR}/journalctl_match_filtered.txt"
-
+  stcatn "${TMPDIR}/journalctl_match_filtered.txt" | sort --unique | br_add
   safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt"
-
-  stcatn "${TMPDIR}/journalctl_match_filtered.txt_br" | sort --unique
-  safe-rm --force -- "${TMPDIR}/journalctl_match_filtered.txt_br"
 
   ## These will later be used by check_critical_logs. Note that these are
   ## intentionally unsanitized for now and will be sanitized later.
@@ -173,10 +168,9 @@ check_critical_logs() {
    ## unlikely to be ones an attacker can influence.
    { grep --text --ignore-case --extended-regexp -- "${hard_critical}" "${log_file}" || true; } | sort --unique | sanitize-string --no-block -- nolimit > "${matched}"
 
-   br_add_to_file "${matched}"
-   stcatn "${matched}_br"
+   stcatn "${matched}" | br_add
 
-   safe-rm --force -- "${log_file}" "${matched}" "${matched}_br"
+   safe-rm --force -- "${log_file}" "${matched}"
 }
 
 main() {

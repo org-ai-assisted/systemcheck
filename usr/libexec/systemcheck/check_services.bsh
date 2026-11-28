@@ -43,17 +43,7 @@ check_services_do() {
 
    ## Drop CLI-ignored units (--ignore-failed-unit) from the failed-units list.
    ## Mostly useful for CI testing.
-   if [ -n "${systemcheck_ignore_failed_units_cli:-}" ]; then
-      local ignore_unit
-      # shellcheck disable=SC2086
-      for ignore_unit in ${systemcheck_ignore_failed_units_cli}; do
-         systemctl_output_without_legend="$(printf '%s\n' "${systemctl_output_without_legend}" | grep --invert-match --fixed-strings -- "${ignore_unit}" || true)"
-      done
-      ## After filtering, treat a whitespace-only result as "no failed units".
-      if [[ "${systemctl_output_without_legend}" =~ ^[[:space:]]*$ ]]; then
-         systemctl_output_without_legend=""
-      fi
-   fi
+   systemctl_output_without_legend="$(systemcheck_drop_ignored_failed_units "${systemctl_output_without_legend}")"
 
    if [ "${systemctl_output_without_legend}" = "" ]; then
       local MSG
@@ -179,8 +169,7 @@ print_verbose_log_output_message_maybe() {
 apply_journal_ignore_cli() {
    ## Drop journal lines matching any --journal-ignore-fixed (fixed string) or
    ## --journal-ignore-match (extended regexp). Returns the input unchanged
-   ## when neither CLI list is set, and empty when only '<br />'/whitespace
-   ## survives.
+   ## when neither CLI list is set, and empty when only whitespace survives.
    local input result journal_ignore_pattern grep_ignore_cli_command
    input="${1:-}"
    if [ -z "${systemcheck_journal_ignore_fixed_cli:-}" ] \
@@ -188,7 +177,12 @@ apply_journal_ignore_cli() {
       printf '%s' "${input}"
       return 0
    fi
-   result="${input}"
+   ## Strip the per-line '<br />' render tags so the ignore patterns match the
+   ## real journal content (an end-anchored '...$' included), NOT HTML-ified
+   ## text where every line but the last ends in '<br />' (br_add inserts the
+   ## tag BETWEEN lines, so a bare last line would match an anchor the earlier
+   ## tagged lines cannot). br_add re-adds the tags for GUI rendering at the end.
+   result="${input//<br \/>/}"
    if [ -n "${systemcheck_journal_ignore_fixed_cli:-}" ]; then
       ## TODO: Should we remove --ignore-case? systemd unit names are
       ## case-sensitive.
@@ -209,10 +203,10 @@ apply_journal_ignore_cli() {
       done <<< "${systemcheck_journal_ignore_match_cli}"
       result="$(printf '%s\n' "${result}" | "${grep_ignore_cli_command[@]}")" || true
    fi
-   if [[ "${result//<br \/>/}" =~ ^[[:space:]]*$ ]]; then
+   if [[ "${result}" =~ ^[[:space:]]*$ ]]; then
       return 0
    fi
-   printf '%s' "${result}"
+   printf '%s' "${result}" | br_add
 }
 
 check_journal() {

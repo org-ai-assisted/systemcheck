@@ -17,6 +17,9 @@ check_package_manager_running() {
    is_whole_number "${systemcheck_package_manager_wait_max:-}" || systemcheck_package_manager_wait_max=''
    default_if_empty systemcheck_package_manager_wait_max "1200"
    waited="0"
+   ## Set to 1 once the wait loop opens a progress bar; default so the checks
+   ## below read it safely when no package manager was running.
+   systemcheck_package_manager_waiting="0"
    while ! check_package_manager_running_helper; do
       if [ "${waited}" -ge "${systemcheck_package_manager_wait_max}" ]; then
          if [ "${systemcheck_package_manager_waiting}" = "1" ]; then

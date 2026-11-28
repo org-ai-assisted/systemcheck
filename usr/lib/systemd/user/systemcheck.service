@@ -9,23 +9,19 @@ Type=exec
 ExecStart=systemcheck --autostart
 RemainAfterExit=true
 
-## W^X hardening (anonymous executable memory). MemoryDenyWriteExecute denies
-## anon W+X and mprotect/shmat gaining PROT_EXEC; SystemCallArchitectures=native
-## closes the secondary-ABI (i386) bypass; LockPersonality blocks the
-## READ_IMPLIES_EXEC bypass; SystemCallFilter=~memfd_create denies the memfd
-## bypass; NoExecPaths marks the shared writable dirs non-executable (file-backed
-## exec MDWE does not cover). The bash front-end does not JIT.
-## SystemCallErrorNumber=EPERM: a denied syscall returns -EPERM (a catchable
-## error) instead of the default SIGSYS kill. These restrictions INHERIT into
-## children; the progress-bar path (msgcollector -> msgprogressbar -> yad, GTK)
-## runs as a DIRECT descendant here and calls memfd_create for its shm buffer.
-## On the Kicksecure default X11/Xfce desktop, GTK's MIT-SHM is optional, so EPERM
-## makes yad fall back to non-shm and still render, where a SIGSYS kill would
-## abort it. CAVEAT on a Wayland session: GTK3's gdk_wayland falls back to
-## shm_open only on ENOSYS, not EPERM, so the progress bar does not render there
-## (a GDK CRITICAL, not a crash) -- still strictly better than the SIGSYS kill,
-## which aborted it on every session. (The --messagex/passive dialogs render
-## out-of-process in msgdispatcher, so those are not under this filter.)
+## Already the hardened run: tells the launcher not to re-confine (it keys on
+## this sentinel, not INVOCATION_ID, which every unit would set).
+Environment=SYSTEMCHECK_HARDENED=1
+
+## NoNewPrivileges is intentionally NOT set. systemcheck's AppArmor profile uses
+## domain-transition rules (man Px, pw-play rUx) to exec helpers; no_new_privs
+## makes the kernel DENY any Px/Ux profile-replace transition, so those checks
+## would false-fail ("Broken"). W^X here comes from the seccomp directives below
+## (MemoryDenyWriteExecute + SystemCallFilter -> Seccomp: 2), which systemd
+## applies as the privileged manager without needing the no_new_privs bit; the
+## profile still confines the process. (Keeping NNP would require rewriting the
+## profile's transitions as ix/stacked rules -- a divergence from upstream.)
+#NoNewPrivileges=yes
 MemoryDenyWriteExecute=true
 SystemCallArchitectures=native
 LockPersonality=true

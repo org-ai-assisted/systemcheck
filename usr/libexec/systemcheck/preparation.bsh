@@ -34,6 +34,27 @@ run_if_verbose() {
    fi
 }
 
+## Drop --ignore-failed-unit units (systemcheck_ignore_failed_units_cli) from a
+## failed-units listing; echo the filtered text, '' when only whitespace remains
+## so callers can test emptiness. Mostly useful for CI. Each caller reads its own
+## unit list first. Shared by check_services and check_system_ready.
+systemcheck_drop_ignored_failed_units() {
+   local text ignore_unit
+   text="$1"
+   if [ -z "${systemcheck_ignore_failed_units_cli:-}" ]; then
+      printf '%s' "${text}"
+      return 0
+   fi
+   # shellcheck disable=SC2086
+   for ignore_unit in ${systemcheck_ignore_failed_units_cli}; do
+      text="$(printf '%s\n' "${text}" | grep --invert-match --fixed-strings -- "${ignore_unit}" || true)"
+   done
+   if [[ "${text}" =~ ^[[:space:]]*$ ]]; then
+      text=""
+   fi
+   printf '%s' "${text}"
+}
+
 ## Returns true if the only reason the system is degraded by
 ## systemd-modules-load is because 'tirdad' couldn't load under Secure Boot.
 systemcheck_modules_load_degrade_is_tirdad_sb_only() {
@@ -199,12 +220,13 @@ show_systemcheck_header() {
 }
 
 virtualizer_detection() {
-   [ -n "${systemcheck_virt_detection_tool}" ] || systemcheck_virt_detection_tool="systemd-detect-virt"
+   [ -v systemcheck_virt_detection_tool ] || systemcheck_virt_detection_tool="systemd-detect-virt"
 
    ## Global variable systemcheck_virtualizer_detected.
    ## (Used by check_pvclock.)
 
    systemcheck_platform_or_virtualizer_known=false
+   systemcheck_virtualizer_tool_unavailable="false"
 
    if ! has "${systemcheck_virt_detection_tool}" ; then
       systemcheck_virtualizer_tool_unavailable="true"
@@ -272,25 +294,10 @@ systemcheck_session_detection() {
   fi
 }
 
-running_as_sysmaint() {
-  ## True when the session's account is the privileged 'sysmaint' account.
-  ## This alone does NOT imply the System Maintenance Panel is present: the
-  ## panel lives in the sysmaint SESSION, set up only on a 'boot-role=sysmaint'
-  ## boot (see in_working_sysmaint_session). The boot-role mismatch check
-  ## compares this account state against the requested role.
-  [ "${who_ami}" = 'sysmaint' ]
-}
-
-in_working_sysmaint_session() {
-  ## True only in a real SYSMAINT Session: 'boot-role=sysmaint' requested at
-  ## boot AND landed on the 'sysmaint' account. Only then is the System
-  ## Maintenance Panel present, so this -- not the account alone -- gates the
-  ## "click Open Terminal in the System Maintenance Panel" guidance. A sysmaint
-  ## account reached WITHOUT that boot role (console su, manual default-user)
-  ## has sudo but no panel, and must not get panel guidance.
-  [ "${booted_in_sysmaint_session}" = 'true' ] && running_as_sysmaint
-}
-
+## Note to AI agents: No checking for "${who_ami}" = 'sysmaint' in sysmaint
+## sessions, by design. 'sysmaint' is the only account supported for GUI login
+## when booted in sysmaint mode, other GUI logins are insecure in that session
+## and shall not be taken into account.
 if_you_know_what_you_are_doing_funct() {
    ## $1 - ${FUNCNAME[0]}
    printf '%s\n' "\
@@ -336,7 +343,7 @@ remediation_instructions() {
    ## Will also make the message make sense on GUI-less servers.
    local fix_command
    fix_command="$1"
-   if in_working_sysmaint_session; then
+   if [ "${booted_in_sysmaint_session}" = "true" ]; then
       printf '%s' "To fix, click \"Open Terminal\" in the System Maintenance Panel, then run:<blockquote><code>sudo ${fix_command}</code></blockquote>"
    elif [ "${user_sysmaint_split_installed}" = "true" ]; then
       printf '%s' "To fix, reboot into <code>PERSISTENT Mode | SYSMAINT Session | system maintenance tasks</code>, click \"Open Terminal\" in the System Maintenance Panel, and run:<blockquote><code>sudo ${fix_command}</code></blockquote>"
@@ -489,7 +496,7 @@ get_local_derivative_version() {
 
 preparation() {
    ## For package 'msgcollector' function 'msgdispatcher_init'.
-   [ -n "${who_ami}" ] || who_ami="$(whoami)"
+   [ -v who_ami ] || who_ami="$(whoami)"
 
    ## required by virtualizer_detection
    if has qubesdb-read ; then
@@ -649,7 +656,7 @@ preparation() {
       TITLE_CLI="${VM} | $(LC_ALL=C date --utc)"
    fi
 
-   [ -n "${silent}" ] || silent="0"
+   [ -v silent ] || silent="0"
 
    TITLE_X="${IDENTIFIER} | ${VM}${qubes_title_extra}"
 

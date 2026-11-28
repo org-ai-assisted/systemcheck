@@ -58,44 +58,28 @@ ${remediation}</p>"
    emit_message warning "${MSG}"
 }
 
-no_new_privs_active() {
-   ## /proc/self/status reports 'NoNewPrivs: 1' when PR_SET_NO_NEW_PRIVS is set.
-   ## systemcheck.service runs W^X-hardened with NoNewPrivileges, and a
-   ## 'systemd --user' unit's W^X seccomp forces no_new_privs regardless. Under
-   ## it a setuid exec cannot gain privilege (the kernel refuses).
-   local no_new_privs_value
-   no_new_privs_value="$(grep -- 'NoNewPrivs' /proc/self/status 2>/dev/null | awk '{ print $2 }')" || true
-   [ "${no_new_privs_value}" = "1" ]
-}
-
 check_privilege_escalation_tools() {
-   ## leaprun is mandatory for systemcheck.
-   ## systemcheck has been fully ported to privleap.
-   ## privleap is a dependency of systemcheck.
-   ## Therefore test leaprun in any case.
+   ## privleap is a systemcheck dependency; verify the privleap stack in any case
+   ## (non-setuid socket client -- unaffected by the seccomp sandbox).
    check_privilege_escalation_tool_do privleapd --check-config
    check_privilege_escalation_tool_do leaprun check-privleap
    check_privilege_escalation_tool_do leaprun check-privleap-environment-variables
    check_privilege_escalation_tool_do leaprun check-sudo
 
-   ## Under no_new_privs a setuid exec cannot gain privilege, so 'sudo'/'pkexec'
-   ## abort by design, not from misconfiguration -- do not false-fail them. The
-   ## leaprun checks above use a non-setuid privleapd socket client, so they are
-   ## unaffected and always run. An interactive run has no_new_privs unset and
-   ## exercises sudo/pkexec normally.
-   if no_new_privs_active; then
-      run_if_verbose emit_status_line info "Checks '<code>sudo</code>' / '<code>pkexec</code>'" "" orange "N/A" "(no_new_privs)"
-      return 0
-   fi
-
+   ## Verify the USER-FACING setuid path DIRECTLY as well. The leaprun checks run
+   ## the tool through root-owned privleapd (effective UID 0), where sudo/pkexec
+   ## SKIP their setuid-installation self-check, so a stripped setuid bit is
+   ## invisible to them -- the direct probes run the tool AS THE USER and catch it.
+   ## systemcheck no longer runs under no_new_privs (which would make a setuid
+   ## exec abort), so these run normally in both autostart and interactive modes.
    if [ "${use_sudo}" = "yes" ]; then
       check_privilege_escalation_tool_do sudo --non-interactive -- /usr/bin/test -x /usr/bin/test
    fi
 
    if [ "${use_pkexec}" = "yes" ]; then
-      ## sudo systemctl restart polkit.service
-      ## /usr/lib/policykit-1-gnome/polkit-gnome-authentication-agent-1
       check_privilege_escalation_tool_do pkexec /usr/libexec/systemcheck/pkexec-test
+      ## Separate privleap-pkexec path check, symmetric with check-sudo above.
+      check_privilege_escalation_tool_do leaprun check-pkexec
    fi
 }
 
